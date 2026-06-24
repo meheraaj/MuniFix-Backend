@@ -8,6 +8,13 @@ const app = express();
 
 app.use(express.json());
 
+
+
+app.get()
+
+
+
+
 //database test
 app.get("/testdb", async (req, res) => {
   try {
