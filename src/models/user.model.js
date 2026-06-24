@@ -38,5 +38,16 @@ export const UserModel = {
     return result.rows[0];
   },
 
+  async loginUser({ email, password }) {
+    const queryText = `
+    SELECT id,email,password,role
+    FROM users
+    WHERE email = $1
+    `;
+
+    const result = await pool.query(queryText, [email]);
+    return result.rows[0] || null;
+  },
+
   //
 };

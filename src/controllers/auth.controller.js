@@ -1,7 +1,8 @@
-const jwt = require("jsonwebtoken");
 const { UserModel } = require("../models/user.model.js");
 const ApiError = require("../utils/apiError");
 const express = require("express");
+const { verifyPassword } = require("../utils/validator.js");
+const { generateToken } = require("../utils/jwt.token.js");
 
 const register = async (req, res, next) => {
   try {
@@ -44,6 +45,46 @@ const register = async (req, res, next) => {
   }
 };
 
+const login = async (req, res, next) => {
+  try {
+    const { email, password } = req.body;
+    const existingUser = await UserModel.findByEmail(email);
+    if (!existingUser) {
+      return next(new ApiError(409, "Account not found with this email."));
+    }
+
+    const loginResponse = await UserModel.loginUser({ email, password });
+
+    let matched = await verifyPassword(password, loginResponse.password);
+
+    if (matched) {
+      const jwtToken = generateToken({
+        id: loginResponse.id,
+        email: loginResponse.email,
+        role: loginResponse.role,
+      });
+      return res.status(200).json({
+        success: true,
+        message: "Login Success.",
+        users: {
+          email: email,
+          id: loginResponse.id,
+        },
+        authtoken: jwtToken,
+      });
+    } else {
+      return res.status(400).json({
+        success: false,
+        message: "wrong password.",
+        email: email,
+      });
+    }
+  } catch (error) {
+    next(new ApiError(500, error.message));
+  }
+};
+
 module.exports = {
   register,
+  login,
 };
