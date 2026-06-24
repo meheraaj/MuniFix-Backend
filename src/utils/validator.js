@@ -1,16 +1,11 @@
-const bcrypt = required("bcrypt");
+import bcrypt from "bcrypt";
 
-async function hashPassword(password) {
+export async function hashPassword(password) {
   const hashedPassword = await bcrypt.hash(password, 10);
-  return hashPassword;
+  return hashedPassword;
 }
 
-async function verifyPassword(userPassword, dbPassword) {
+export async function verifyPassword(userPassword, dbPassword) {
   const isMatch = await bcrypt.compare(userPassword, dbPassword);
   return isMatch;
 }
-
-module.exports = {
-  hashPassword,
-  verifyPassword,
-};

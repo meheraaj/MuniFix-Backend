@@ -1,16 +1,16 @@
-import pool from "../config/db";
-import { hashPassword } from "../utils/validator";
+import pool from "../config/db.js";
+import { hashPassword } from "../utils/validator.js";
 
 export const UserModel = {
   // Find by Email
   async findByEmail(email) {
     const datas = `
-        SELECT  id,name,email.password_hash,role,department_id
+        SELECT  id,name,email,password,role,department_id
         FROM users
         WHERE email = $1;
         `;
-    const result = await pool(datas, [email.toLowerCase()]);
-    return result.row[0] || null;
+    const result = await pool.query(datas, [email.toLowerCase()]);
+    return result.rows[0] || null;
   },
 
   /*
@@ -18,12 +18,12 @@ export const UserModel = {
     returns Promise<object> the newly created user record
   */
 
-  async createUser({ name, email, pass, phone, department_id, role }) {
-    const hashedPassword = hashPassword(pass);
+  async createUser({ name, email, password, phone, department_id, role }) {
+    const hashedPassword = await hashPassword(password);
     const queryText = `
-  INSERT INTO users(name,email,phone,password_hash,role,department_id)
+  INSERT INTO users(name,email,phone,password,role,department_id)
   VALUES($1,$2,$3,$4,$5,$6)
-  RETURNING id,name,email.role,phone,created_at;
+  RETURNING id,name,email,role,phone,created_at;
   `;
 
     const result = await pool.query(queryText, [
@@ -35,7 +35,7 @@ export const UserModel = {
       department_id,
     ]);
 
-    return result.row[0];
+    return result.rows[0];
   },
 
   //

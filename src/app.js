@@ -3,17 +3,14 @@ const express = require("express");
 
 const pool = require("./config/db.js");
 require("dotenv").config();
+const ApiError = require("./utils/apiError.js");
+const routes = require("./routes/routes.js");
 
 const app = express();
 
 app.use(express.json());
 
-
-
-app.get()
-
-
-
+app.use("/api", routes);
 
 //database test
 app.get("/testdb", async (req, res) => {
@@ -26,6 +23,18 @@ app.get("/testdb", async (req, res) => {
   } catch (err) {
     console.error(err);
   }
+});
+
+// 404 error
+app.use((req, res, next) => {
+  next(new ApiError(404, `Route not found: ${req.originalUrl}`));
+});
+//Error Handling
+app.use((err, req, res, next) => {
+  res.status(err.statusCode || 500).json({
+    success: false,
+    message: err.message || "Internal Server Error",
+  });
 });
 
 app.listen(process.env.PORT || 3000, () => {
