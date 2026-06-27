@@ -58,11 +58,7 @@ const login = async (req, res, next) => {
     let matched = await verifyPassword(password, loginResponse.password);
 
     if (matched) {
-      const jwtToken = generateToken({
-        id: loginResponse.id,
-        email: loginResponse.email,
-        role: loginResponse.role,
-      });
+      const jwtToken = generateToken(loginResponse);
       return res.status(200).json({
         success: true,
         message: "Login Success.",

@@ -1,11 +1,11 @@
 import jwt from "jsonwebtoken";
 
-export const generateToken = (email, id, role) => {
+export const generateToken = (data) => {
   const encodedToken = jwt.sign(
     {
-      id,
-      email,
-      role,
+      email: data.email,
+      id: data.id,
+      role: data.role,
     },
     process.env.JWT_SECRET,
     {
@@ -15,7 +15,7 @@ export const generateToken = (email, id, role) => {
   return encodedToken;
 };
 
-export const decodeToken = (token) => {
-  const decodedToken = jwt.verify(token, process.env.JWT_SECRET);
+export const decodeToken = async (token) => {
+  const decodedToken = await jwt.verify(token, process.env.JWT_SECRET);
   return decodedToken;
 };
