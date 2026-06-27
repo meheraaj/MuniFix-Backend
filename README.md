@@ -3,7 +3,7 @@
 ## Base URL
 
 ```text
-http://localhost:5000/api
+http://localhost:3000/api
 ```
 
 ---
