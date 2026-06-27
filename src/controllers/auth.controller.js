@@ -61,7 +61,7 @@ const login = async (req, res, next) => {
       const jwtToken = generateToken(loginResponse);
       return res.status(200).json({
         success: true,
-        message: "Login Success.",
+        message: "Login successful",
         users: {
           email: email,
           id: loginResponse.id,
