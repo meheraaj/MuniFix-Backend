@@ -18,6 +18,7 @@ export const checkAuth = async (req, res, next) => {
     const userValid = await UserModel.findByEmail(dtt.email);
     if (userValid) {
       req.email = dtt.email;
+      req.role = dtt.role;
       next();
     } else return next(new ApiError(401, "Unauthorized"));
   } catch (error) {
