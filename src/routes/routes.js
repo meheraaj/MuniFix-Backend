@@ -1,9 +1,9 @@
 const express = require("express");
-const profile_routes = require("./my.routes");
 const { checkAuth } = require("../middleware/auth.middleware");
+const citizen_routes = require("./citizen.routes");
 require("dotenv").config();
 const routes = express.Router();
 
-routes.use("/my", checkAuth, profile_routes);
+routes.use("/citizen", checkAuth, citizen_routes);
 
 module.exports = routes;
