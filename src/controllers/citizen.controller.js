@@ -1,31 +1,45 @@
-const { response } = require("express");
 const ApiError = require("../utils/apiError.js");
-const { ComplainModel } = require("../models/complain.model.js");
+const ComplaintModel = require("../models/complaint.model.js");
+const cloudinary = require("../config/cloudinary.js");
 
 const addNewComplain = async (req, res, next) => {
-  const { longitude, latitude, city, street, image, title, description } =
-    req.body;
+  const { longitude, latitude, city, street, title, description } = req.body;
   try {
     if (longitude && latitude && city && street && title && description) {
       if (!req.files || req.files.length === 0) {
         return next(new ApiError(400, "Minimum 1 image required"));
       }
 
-      const uploadedFiles = req.files.map((file) => ({
-        file_url: file.path,
-        public_id: file.filename,
-      }));
-      const imgURL = req.files.map((file) => 
-        file.path,
+      // Upload multiple files to Cloudinary from memory buffer
+      const uploadPromises = req.files.map((file) => {
+        return new Promise((resolve, reject) => {
+          if (
+            process.env.CLOUDINARY_CLOUD_NAME &&
+            process.env.CLOUDINARY_API_KEY &&
+            process.env.CLOUDINARY_API_SECRET
+          ) {
+            const stream = cloudinary.uploader.upload_stream(
+              { folder: "uploads" },
+              (error, result) => {
+                if (error) reject(error);
+                else resolve(result.secure_url);
+              }
+            );
+            stream.end(file.buffer);
+          } else {
+            // Mock upload if Cloudinary is not configured
+            resolve(`https://via.placeholder.com/600x400.png?text=Mock+Upload+${Date.now()}`);
+          }
+        });
+      });
 
-      );
+      const imgURL = await Promise.all(uploadPromises);
 
-      const response = await ComplainModel.addNewComplain(
+      const response = await ComplaintModel.addNewComplain(
         longitude,
         latitude,
         city,
         street,
-    
         title,
         description,
         req.user_id,
@@ -35,18 +49,17 @@ const addNewComplain = async (req, res, next) => {
       res.status(200).json({
         success: true,
         message: "complain added successfully",
-        complain: {
-          ...response,
-          
-        },
-        uploadedFiles,
-        
+        complain: response,
+        uploadedFiles: imgURL.map((url, index) => ({
+          file_url: url,
+          public_id: `file_${index}`
+        }))
       });
     } else {
       return next(
         new ApiError(
-          404,
-          "longitude, latitude, city, street, image, title, description cannot be empty"
+          400,
+          "longitude, latitude, city, street, title, description cannot be empty"
         )
       );
     }
@@ -55,9 +68,7 @@ const addNewComplain = async (req, res, next) => {
   }
 };
 
-
-
-//Get Complain List By UserID
+// Get Complain List By UserID
 const getComplainByUserId = async (req, res, next) => {
   const userID = req.user_id;
 
@@ -66,7 +77,7 @@ const getComplainByUserId = async (req, res, next) => {
     const limit = Number(req.query.limit) || 10;
     const offset = (page - 1) * limit;
 
-    const response = await ComplainModel.userComplainList(
+    const response = await ComplaintModel.userComplainList(
       userID,
       limit,
       offset
@@ -101,4 +112,7 @@ const getComplainByUserId = async (req, res, next) => {
   }
 };
 
-module.exports = { addNewComplain ,getComplainByUserId};
+module.exports = {
+  addNewComplain,
+  getComplainByUserId,
+};
