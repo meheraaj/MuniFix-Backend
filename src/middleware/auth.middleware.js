@@ -1,8 +1,8 @@
-import { UserModel } from "../models/user.model.js";
-import ApiError from "../utils/apiError.js";
-import { decodeToken } from "../utils/jwt.token.js";
+const UserModel = require("../models/user.model.js");
+const ApiError = require("../utils/apiError.js");
+const { decodeToken } = require("../utils/jwt.token.js");
 
-export const checkAuth = async (req, res, next) => {
+const checkAuth = async (req, res, next) => {
   const authHeader = req.headers.authorization;
 
   if (!authHeader || !authHeader.startsWith("Bearer")) {
@@ -26,3 +26,5 @@ export const checkAuth = async (req, res, next) => {
     return next(new ApiError(401, "Invalid or expired token."));
   }
 };
+
+module.exports = checkAuth;

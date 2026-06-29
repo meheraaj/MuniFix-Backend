@@ -1,7 +1,7 @@
-import pool from "../config/db.js";
-import { hashPassword } from "../utils/validator.js";
+const pool = require("../config/db.js");
+const { hashPassword } = require("../utils/validator.js");
 
-export const DeptModel = {
+const DeptModel = {
   async getDeptNameById(id) {
     const datas = `
         SELECT name
@@ -12,3 +12,5 @@ export const DeptModel = {
     return result.rows[0] || null;
   },
 };
+
+module.exports = { DeptModel };

@@ -1,7 +1,7 @@
-import pool from "../config/db.js";
-import { hashPassword } from "../utils/validator.js";
+const pool = require("../config/db.js");
+const { hashPassword } = require("../utils/validator.js");
 
-export const CitizenModel = {
+const CitizenModel = {
   async addNewComplain(
     longitude,
     latitude,
@@ -64,3 +64,5 @@ export const CitizenModel = {
 
   //
 };
+
+module.exports = { CitizenModel };

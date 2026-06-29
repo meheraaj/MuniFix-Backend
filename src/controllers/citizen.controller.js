@@ -1,13 +1,21 @@
-import { response } from "express";
-import ApiError from "../utils/apiError.js";
-import { CitizenModel } from "../models/citizen.model.js";
+const { response } = require("express");
+const ApiError = require("../utils/apiError.js");
+const { CitizenModel } = require("../models/citizen.model.js");
 
-export const addNewComplain = async (req, res, next) => {
+const addNewComplain = async (req, res, next) => {
   const { longitude, latitude, city, street, image, title, description } =
     req.body;
+  try {
+    if (longitude && latitude && city && street && title && description) {
+      if (!req.files || req.files.length === 0) {
+        return next(new ApiError(400, "Minimum 1 image required"));
+      }
 
-  if (longitude && latitude && city && street && title && description) {
-    try {
+      const uploadedFiles = req.files.map((file) => ({
+        file_url: file.path,
+        public_id: file.filename,
+      }));
+
       const response = await CitizenModel.addNewComplain(
         longitude,
         latitude,
@@ -26,15 +34,17 @@ export const addNewComplain = async (req, res, next) => {
           ...response,
         },
       });
-    } catch (error) {
-      return next(new ApiError(500, error.message));
+    } else {
+      return next(
+        new ApiError(
+          404,
+          "longitude, latitude, city, street, image, title, description cannot be empty"
+        )
+      );
     }
-  } else {
-    return next(
-      new ApiError(
-        404,
-        "longitude, latitude, city, street, image, title, description cannot be empty"
-      )
-    );
+  } catch (error) {
+    return next(new ApiError(500, error.message));
   }
 };
+
+module.exports = { addNewComplain };
