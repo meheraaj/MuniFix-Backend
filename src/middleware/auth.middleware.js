@@ -19,6 +19,7 @@ export const checkAuth = async (req, res, next) => {
     if (userValid) {
       req.email = dtt.email;
       req.role = dtt.role;
+      req.user_id = dtt.id;
       next();
     } else return next(new ApiError(401, "Unauthorized"));
   } catch (error) {
