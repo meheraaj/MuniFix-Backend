@@ -9,14 +9,16 @@ const CitizenModel = {
     street,
     title,
     description,
-    citizen_id
+    citizen_id,
+    imgUrl
   ) {
     const query = `
-        INSERT INTO complaints(longitude,latitude,city,street,title,description,status,citizen_id)
-        VALUES($1,$2,$3,$4,$5,$6,$7,$8)
+        INSERT INTO complaints(longitude,latitude,city,street,title,description,status,citizen_id,image_url)
+        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)
         RETURNING id,citizen_id,status
         `;
 
+        console.log(imgUrl)
     const result = await pool.query(query, [
       longitude,
       latitude,
@@ -26,6 +28,7 @@ const CitizenModel = {
       description,
       "pending",
       citizen_id,
+      imgUrl
     ]);
 
     return result.rows[0] || null;

@@ -15,16 +15,21 @@ const addNewComplain = async (req, res, next) => {
         file_url: file.path,
         public_id: file.filename,
       }));
+      const imgURL = req.files.map((file) => 
+        file.path,
+
+      );
 
       const response = await CitizenModel.addNewComplain(
         longitude,
         latitude,
         city,
         street,
-
+    
         title,
         description,
-        req.user_id
+        req.user_id,
+        imgURL
       );
 
       res.status(200).json({
@@ -32,7 +37,10 @@ const addNewComplain = async (req, res, next) => {
         message: "complain added successfully",
         complain: {
           ...response,
+          
         },
+        uploadedFiles,
+        
       });
     } else {
       return next(
