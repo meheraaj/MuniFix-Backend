@@ -1,6 +1,6 @@
 const pool = require("../config/db.js");
 
-const ComplaintModel = {
+const ComplainModel = {
   // Create a new complaint
   async createComplaint({
     citizen_id,
@@ -184,7 +184,7 @@ const ComplaintModel = {
       VALUES ($1, $2, $3, $4)
       ON CONFLICT (complaint_id) 
       DO UPDATE SET 
-        worker_id = EXCLUDED.worker_id,
+         worker_id = EXCLUDED.worker_id,
         assigned_by = EXCLUDED.assigned_by,
         notes = EXCLUDED.notes,
         assigned_at = CURRENT_TIMESTAMP
@@ -246,5 +246,4 @@ const ComplaintModel = {
   }
 };
 
-module.exports = ComplaintModel;
-
+module.exports = { ComplainModel };

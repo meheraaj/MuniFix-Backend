@@ -1,5 +1,5 @@
 const { GoogleGenAI } = require("@google/genai");
-const ComplaintModel = require("../models/complaint.model.js");
+const { ComplainModel } = require("../models/complain.model.js");
 const cloudinary = require("../config/cloudinary.js");
 const ApiError = require("../utils/apiError.js");
 
@@ -190,7 +190,7 @@ const createComplaint = async (req, res, next) => {
     const finalDeptId = department_id || aiDetails.department_id;
 
     // Create the complaint record in the database
-    const newComplaint = await ComplaintModel.createComplaint({
+    const newComplaint = await ComplainModel.createComplaint({
       citizen_id,
       description,
       image_url: image_url ? [image_url] : null,
@@ -207,7 +207,7 @@ const createComplaint = async (req, res, next) => {
     });
 
     // Create initial history record
-    await ComplaintModel.createStatusHistory({
+    await ComplainModel.createStatusHistory({
       complaint_id: newComplaint.id,
       old_status: "none",
       new_status: "pending",
@@ -247,7 +247,7 @@ const listComplaints = async (req, res, next) => {
       if (department_id) filterOptions.department_id = parseInt(department_id);
     }
 
-    const complaints = await ComplaintModel.getComplaints(filterOptions);
+    const complaints = await ComplainModel.getComplaints(filterOptions);
 
     return res.status(200).json({
       success: true,
@@ -262,15 +262,15 @@ const listComplaints = async (req, res, next) => {
 const getComplaint = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const complaint = await ComplaintModel.getComplaintById(id);
+    const complaint = await ComplainModel.getComplaintById(id);
 
     if (!complaint) {
       return next(new ApiError(404, "Complaint not found."));
     }
 
     // Get assignments and status history
-    const assignment = await ComplaintModel.getAssignment(id);
-    const history = await ComplaintModel.getStatusHistory(id);
+    const assignment = await ComplainModel.getAssignment(id);
+    const history = await ComplainModel.getStatusHistory(id);
 
     return res.status(200).json({
       success: true,
@@ -295,7 +295,7 @@ const updateStatus = async (req, res, next) => {
       return next(new ApiError(400, "changed_by (user ID) is required."));
     }
 
-    const complaint = await ComplaintModel.getComplaintById(id);
+    const complaint = await ComplainModel.getComplaintById(id);
     if (!complaint) {
       return next(new ApiError(404, "Complaint not found."));
     }
@@ -308,10 +308,10 @@ const updateStatus = async (req, res, next) => {
       updates.department_id = parseInt(department_id);
     }
 
-    const updatedComplaint = await ComplaintModel.updateComplaint(id, updates);
+    const updatedComplaint = await ComplainModel.updateComplaint(id, updates);
 
     // Record status history change
-    await ComplaintModel.createStatusHistory({
+    await ComplainModel.createStatusHistory({
       complaint_id: id,
       old_status: oldStatus,
       new_status: status,
@@ -326,7 +326,7 @@ const updateStatus = async (req, res, next) => {
         return next(new ApiError(400, "worker_id is required to assign this complaint."));
       }
 
-      assignment = await ComplaintModel.assignComplaint({
+      assignment = await ComplainModel.assignComplaint({
         complaint_id: id,
         worker_id,
         assigned_by: changed_by,
@@ -348,7 +348,7 @@ const updateStatus = async (req, res, next) => {
 const deleteComplaint = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const deleted = await ComplaintModel.deleteComplaint(id);
+    const deleted = await ComplainModel.deleteComplaint(id);
 
     if (!deleted) {
       return next(new ApiError(404, "Complaint not found."));

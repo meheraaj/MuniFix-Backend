@@ -1,6 +1,5 @@
 const ApiError = require("../utils/apiError.js");
-const ComplaintModel = require("../models/complaint.model.js");
-const cloudinary = require("../config/cloudinary.js");
+const { ComplainModel } = require("../models/complain.model.js");
 
 const addNewComplain = async (req, res, next) => {
   const { longitude, latitude, city, street, title, description } = req.body;
@@ -10,32 +9,14 @@ const addNewComplain = async (req, res, next) => {
         return next(new ApiError(400, "Minimum 1 image required"));
       }
 
-      // Upload multiple files to Cloudinary from memory buffer
-      const uploadPromises = req.files.map((file) => {
-        return new Promise((resolve, reject) => {
-          if (
-            process.env.CLOUDINARY_CLOUD_NAME &&
-            process.env.CLOUDINARY_API_KEY &&
-            process.env.CLOUDINARY_API_SECRET
-          ) {
-            const stream = cloudinary.uploader.upload_stream(
-              { folder: "uploads" },
-              (error, result) => {
-                if (error) reject(error);
-                else resolve(result.secure_url);
-              }
-            );
-            stream.end(file.buffer);
-          } else {
-            // Mock upload if Cloudinary is not configured
-            resolve(`https://via.placeholder.com/600x400.png?text=Mock+Upload+${Date.now()}`);
-          }
-        });
-      });
+      const uploadedFiles = req.files.map((file) => ({
+        file_url: file.path,
+        public_id: file.filename,
+      }));
 
-      const imgURL = await Promise.all(uploadPromises);
+      const imgURL = req.files.map((file) => file.path);
 
-      const response = await ComplaintModel.addNewComplain(
+      const response = await ComplainModel.addNewComplain(
         longitude,
         latitude,
         city,
@@ -50,10 +31,7 @@ const addNewComplain = async (req, res, next) => {
         success: true,
         message: "complain added successfully",
         complain: response,
-        uploadedFiles: imgURL.map((url, index) => ({
-          file_url: url,
-          public_id: `file_${index}`
-        }))
+        uploadedFiles,
       });
     } else {
       return next(
@@ -77,7 +55,7 @@ const getComplainByUserId = async (req, res, next) => {
     const limit = Number(req.query.limit) || 10;
     const offset = (page - 1) * limit;
 
-    const response = await ComplaintModel.userComplainList(
+    const response = await ComplainModel.userComplainList(
       userID,
       limit,
       offset
