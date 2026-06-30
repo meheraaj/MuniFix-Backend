@@ -12,7 +12,7 @@ const { checkAuth, restrictTo } = require("../middleware/auth.middleware.js");
 const complain_routes = express.Router();
 
 // Define Complain routes
-complain_routes.post("/", checkAuth, restrictTo("citizen"), upload.single("image"), createComplaint);
+complain_routes.post("/", checkAuth, restrictTo("citizen"), upload.array("images", 6), createComplaint);
 complain_routes.get("/", checkAuth, listComplaints);
 complain_routes.get("/:id", checkAuth, getComplaint);
 complain_routes.patch("/:id/status", checkAuth, restrictTo("dept_admin", "super_admin"), updateStatus);

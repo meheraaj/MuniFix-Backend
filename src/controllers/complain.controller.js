@@ -153,16 +153,16 @@ const createComplaint = async (req, res, next) => {
       return next(new ApiError(400, "Complaint description is required."));
     }
 
-    // Process image file if uploaded
-    let image_url = null;
-    if (req.file) {
-      if (
-        process.env.CLOUDINARY_CLOUD_NAME &&
-        process.env.CLOUDINARY_API_KEY &&
-        process.env.CLOUDINARY_API_SECRET
-      ) {
-        try {
-          const uploadPromise = new Promise((resolve, reject) => {
+    // Process image files if uploaded
+    let image_url = [];
+    if (req.files && req.files.length > 0) {
+      const uploadPromises = req.files.map((file) => {
+        return new Promise((resolve, reject) => {
+          if (
+            process.env.CLOUDINARY_CLOUD_NAME &&
+            process.env.CLOUDINARY_API_KEY &&
+            process.env.CLOUDINARY_API_SECRET
+          ) {
             const stream = cloudinary.uploader.upload_stream(
               { folder: "munifix" },
               (error, result) => {
@@ -170,15 +170,43 @@ const createComplaint = async (req, res, next) => {
                 else resolve(result.secure_url);
               }
             );
-            stream.end(req.file.buffer);
-          });
-          image_url = await uploadPromise;
-        } catch (err) {
-          console.error("Cloudinary upload failed, falling back to placeholder:", err.message);
-          image_url = `https://via.placeholder.com/600x400.png?text=Mock+Upload+${Date.now()}`;
+            stream.end(file.buffer);
+          } else {
+            resolve(`https://via.placeholder.com/600x400.png?text=Mock+Upload+${Date.now()}`);
+          }
+        });
+      });
+      try {
+        image_url = await Promise.all(uploadPromises);
+      } catch (err) {
+        console.error("Cloudinary upload failed, falling back to placeholders:", err.message);
+        image_url = req.files.map((file, idx) => `https://via.placeholder.com/600x400.png?text=Mock+Upload+${idx}+${Date.now()}`);
+      }
+    } else if (req.file) {
+      const singleUploadPromise = new Promise((resolve, reject) => {
+        if (
+          process.env.CLOUDINARY_CLOUD_NAME &&
+          process.env.CLOUDINARY_API_KEY &&
+          process.env.CLOUDINARY_API_SECRET
+        ) {
+          const stream = cloudinary.uploader.upload_stream(
+            { folder: "munifix" },
+            (error, result) => {
+              if (error) reject(error);
+              else resolve(result.secure_url);
+            }
+          );
+          stream.end(req.file.buffer);
+        } else {
+          resolve(`https://via.placeholder.com/600x400.png?text=Mock+Upload+${Date.now()}`);
         }
-      } else {
-        image_url = `https://via.placeholder.com/600x400.png?text=Mock+Upload+${Date.now()}`;
+      });
+      try {
+        const url = await singleUploadPromise;
+        image_url = [url];
+      } catch (err) {
+        console.error("Cloudinary upload failed, falling back to placeholder:", err.message);
+        image_url = [`https://via.placeholder.com/600x400.png?text=Mock+Upload+${Date.now()}`];
       }
     }
 
@@ -193,7 +221,7 @@ const createComplaint = async (req, res, next) => {
     const newComplaint = await ComplainModel.createComplaint({
       citizen_id,
       description,
-      image_url: image_url ? [image_url] : null,
+      image_url: image_url.length > 0 ? image_url : null,
       latitude: latitude ? parseFloat(latitude) : null,
       longitude: longitude ? parseFloat(longitude) : null,
       category: finalCategory,
