@@ -243,6 +243,63 @@ const ComplainModel = {
     `;
     const response = await pool.query(query, [user_id, limit, offset]);
     return response.rows;
+  },
+
+  // Get filtered complains supporting single or multiple values for admin queries
+  async getComplainAdvanced({ citizen_ids, department_ids, statuses, categories, priorities }) {
+    // Select complains and join users (citizen) and departments to retrieve full details
+    let query = `
+      SELECT c.*, 
+             u.name as citizen_name, u.email as citizen_email,
+             d.name as department_name
+      FROM complaints c
+      LEFT JOIN users u ON c.citizen_id = u.id
+      LEFT JOIN departments d ON c.department_id = d.id
+      WHERE 1=1
+    `;
+    const values = [];
+    let paramIndex = 1;
+
+    // Filter by citizen ID(s)
+    if (citizen_ids && citizen_ids.length > 0) {
+      query += ` AND c.citizen_id::text = ANY($${paramIndex}::text[])`;
+      values.push(citizen_ids);
+      paramIndex++;
+    }
+
+    // Filter by department ID(s)
+    if (department_ids && department_ids.length > 0) {
+      query += ` AND c.department_id = ANY($${paramIndex}::integer[])`;
+      values.push(department_ids.map(Number));
+      paramIndex++;
+    }
+
+    // Filter by status(es)
+    if (statuses && statuses.length > 0) {
+      query += ` AND c.status::text = ANY($${paramIndex}::text[])`;
+      values.push(statuses);
+      paramIndex++;
+    }
+
+    // Filter by category(ies)
+    if (categories && categories.length > 0) {
+      query += ` AND c.category::text = ANY($${paramIndex}::text[])`;
+      values.push(categories);
+      paramIndex++;
+    }
+
+    // Filter by priority/priorities
+    if (priorities && priorities.length > 0) {
+      query += ` AND c.priority::text = ANY($${paramIndex}::text[])`;
+      values.push(priorities);
+      paramIndex++;
+    }
+
+    // Sort complains by creation date in descending order
+    query += ` ORDER BY c.created_at DESC`;
+
+    const result = await pool.query(query, values);
+    return result.rows;
   }
 };
 

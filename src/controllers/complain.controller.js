@@ -391,10 +391,87 @@ const deleteComplaint = async (req, res, next) => {
   }
 };
 
+// Filter complains for admin users (super_admin and dept_admin)
+// Supports filtering by category, status, priority, department, and citizen (single or multiple values)
+const filterComplainForAdmin = async (req, res, next) => {
+  try {
+    // Helper to parse query parameters that could be comma-separated strings or array lists
+    const parseFilterParam = (param) => {
+      if (!param) return [];
+      if (Array.isArray(param)) {
+        return param.map(item => String(item).trim()).filter(Boolean);
+      }
+      if (typeof param === "string") {
+        return param.split(",").map(item => item.trim()).filter(Boolean);
+      }
+      return [];
+    };
+
+    // Extract potential filter arrays
+    let citizen_ids = parseFilterParam(req.query.citizen_id || req.query.citizen_ids);
+    let department_ids = parseFilterParam(req.query.department_id || req.query.department_ids);
+    let statuses = parseFilterParam(req.query.status || req.query.statuses);
+    let categories = parseFilterParam(req.query.category || req.query.categories);
+    let priorities = parseFilterParam(req.query.priority || req.query.priorities);
+
+    const userRole = req.role || req.query.role || req.headers["x-user-role"];
+
+    // Restrict department admins to only view complains from their own department
+    if (userRole === "dept_admin") {
+      let deptId = null;
+      if (req.email) {
+        const { UserModel } = require("../models/user.model.js");
+        const user = await UserModel.findByEmail(req.email);
+        if (user && user.department_id) {
+          deptId = user.department_id;
+        }
+      }
+
+      // Fallback to header or query department ID for testing/standalone purposes
+      if (!deptId) {
+        const testDeptId = req.headers["x-department-id"] || req.query.department_id;
+        if (testDeptId) {
+          deptId = parseInt(testDeptId);
+        }
+      }
+
+      if (deptId) {
+        // Enforce their department as the only allowed filter
+        department_ids = [deptId];
+      } else {
+        // If they have no department and we cannot resolve one, return empty results
+        return res.status(200).json({
+          success: true,
+          count: 0,
+          complains: []
+        });
+      }
+    }
+
+    // Query database using the advanced filter model method
+    const complains = await ComplainModel.getComplainAdvanced({
+      citizen_ids,
+      department_ids,
+      statuses,
+      categories,
+      priorities
+    });
+
+    return res.status(200).json({
+      success: true,
+      count: complains.length,
+      complains
+    });
+  } catch (error) {
+    next(new ApiError(500, error.message));
+  }
+};
+
 module.exports = {
   createComplaint,
   listComplaints,
   getComplaint,
   updateStatus,
   deleteComplaint,
+  filterComplainForAdmin,
 };
