@@ -1,7 +1,8 @@
 const express = require("express");
 const { addNewComplain, getComplainByUserId } = require("../controllers/citizen.controller.js");
-const upload = require("../middleware/multer.middlware.js");
+
 const { checkAuth, restrictTo } = require("../middleware/auth.middleware.js");
+const upload = require("../middleware/upload.middleware.js");
 
 const citizen_routes = express.Router();
 
