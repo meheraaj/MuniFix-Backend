@@ -1,12 +1,16 @@
 const express = require("express");
-const dotenv = require("dotenv");
-const checkAuth = require("../middleware/auth.middleware.js");
+const auth_routes = require("./auth.routes.js");
+const complain_routes = require("./complain.routes.js");
+const profile_routes = require("./my.routes.js");
 const citizen_routes = require("./citizen.routes.js");
-
-dotenv.config();
 
 const routes = express.Router();
 
-routes.use("/citizen", checkAuth, citizen_routes);
+routes.use("/auth", auth_routes);
+routes.use("/complain", complain_routes);
+routes.use("/my", profile_routes);
+routes.use("/citizen", citizen_routes);
 
 module.exports = routes;
+
+

@@ -1,4 +1,4 @@
-const UserModel = require("../models/user.model.js");
+const { UserModel } = require("../models/user.model.js");
 const ApiError = require("../utils/apiError.js");
 const { decodeToken } = require("../utils/jwt.token.js");
 
@@ -18,8 +18,8 @@ const checkAuth = async (req, res, next) => {
     const userValid = await UserModel.findByEmail(dtt.email);
     if (userValid) {
       req.email = dtt.email;
-      req.role = dtt.role;
       req.user_id = dtt.id;
+      req.role = dtt.role;
       next();
     } else return next(new ApiError(401, "Unauthorized"));
   } catch (error) {
@@ -27,4 +27,17 @@ const checkAuth = async (req, res, next) => {
   }
 };
 
-module.exports = checkAuth;
+const restrictTo = (...roles) => {
+  return (req, res, next) => {
+    if (!roles.includes(req.role)) {
+      return next(new ApiError(403, "Forbidden: Access denied for your role."));
+    }
+    next();
+  };
+};
+
+module.exports = {
+  checkAuth,
+  restrictTo,
+};
+

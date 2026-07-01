@@ -14,3 +14,4 @@ module.exports = {
   hashPassword,
   verifyPassword,
 };
+

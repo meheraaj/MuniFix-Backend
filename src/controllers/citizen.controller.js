@@ -1,10 +1,8 @@
-const { response } = require("express");
 const ApiError = require("../utils/apiError.js");
 const { ComplainModel } = require("../models/complain.model.js");
 
 const addNewComplain = async (req, res, next) => {
-  const { longitude, latitude, city, street, image, title, description } =
-    req.body;
+  const { longitude, latitude, city, street, title, description } = req.body;
   try {
     if (longitude && latitude && city && street && title && description) {
       if (!req.files || req.files.length === 0) {
@@ -15,17 +13,14 @@ const addNewComplain = async (req, res, next) => {
         file_url: file.path,
         public_id: file.filename,
       }));
-      const imgURL = req.files.map((file) => 
-        file.path,
 
-      );
+      const imgURL = req.files.map((file) => file.path);
 
       const response = await ComplainModel.addNewComplain(
         longitude,
         latitude,
         city,
         street,
-    
         title,
         description,
         req.user_id,
@@ -35,18 +30,14 @@ const addNewComplain = async (req, res, next) => {
       res.status(200).json({
         success: true,
         message: "complain added successfully",
-        complain: {
-          ...response,
-          
-        },
+        complain: response,
         uploadedFiles,
-        
       });
     } else {
       return next(
         new ApiError(
-          404,
-          "longitude, latitude, city, street, image, title, description cannot be empty"
+          400,
+          "longitude, latitude, city, street, title, description cannot be empty"
         )
       );
     }
@@ -55,9 +46,7 @@ const addNewComplain = async (req, res, next) => {
   }
 };
 
-
-
-//Get Complain List By UserID
+// Get Complain List By UserID
 const getComplainByUserId = async (req, res, next) => {
   const userID = req.user_id;
 
@@ -101,4 +90,7 @@ const getComplainByUserId = async (req, res, next) => {
   }
 };
 
-module.exports = { addNewComplain ,getComplainByUserId};
+module.exports = {
+  addNewComplain,
+  getComplainByUserId,
+};
