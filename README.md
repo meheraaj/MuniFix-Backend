@@ -168,6 +168,66 @@ Authorization: Bearer <your_jwt_token>
 
 ---
 
+# Complains Filter (Admin Only)
+
+Get filtered complains based on various fields. Only `super_admin` and `dept_admin` have access. `dept_admin` is restricted to see complaints only from their own department.
+
+### Endpoint
+
+```http
+GET /complain/admin/filter
+```
+
+### Request Headers
+
+```http
+Authorization: Bearer <your_jwt_token>
+```
+
+### Query Parameters (Optional)
+
+You can pass single or multiple values (comma-separated or multiple keys) to filter:
+
+- `status` or `statuses`: e.g. `pending`, `pending,assigned`, or multiple `status` parameters.
+- `category` or `categories`: e.g. `Waterlogging`, `Road Repair`.
+- `priority` or `priorities`: e.g. `low`, `medium`, `high`, `critical`.
+- `department_id` or `department_ids`: e.g. `1,2`.
+- `citizen_id` or `citizen_ids`: citizen user UUID.
+
+### Example Request
+
+```http
+GET /complain/admin/filter?status=pending,assigned&category=Waterlogging
+```
+
+### Success Response (200)
+
+```json
+{
+  "success": true,
+  "count": 1,
+  "complains": [
+    {
+      "id": "complaint-uuid",
+      "citizen_id": "citizen-uuid",
+      "description": "Road pothole near Gate 2",
+      "image_url": ["url"],
+      "latitude": 22.341,
+      "longitude": 91.812,
+      "category": "Road Repair",
+      "priority": "high",
+      "status": "pending",
+      "department_id": 2,
+      "citizen_name": "John Doe",
+      "citizen_email": "john@example.com",
+      "department_name": "Road Repair"
+    }
+  ]
+}
+```
+
+---
+
 ## Project Stack
 
 - Node.js
