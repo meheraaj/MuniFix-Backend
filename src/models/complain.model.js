@@ -300,7 +300,28 @@ const ComplainModel = {
 
     const result = await pool.query(query, values);
     return result.rows;
-  }
+  },
+  async getWorkerTasks(worker_id, limit = 10, offset = 0) {
+  const query = `
+    SELECT c.id, c.title, c.description, c.status, c.priority, c.category,
+           c.latitude, c.longitude, c.street, c.city, c.image_url, c.created_at,
+           a.assigned_at, a.notes as assignment_notes
+    FROM complaints c
+    INNER JOIN assignments a ON c.id = a.complaint_id
+    WHERE a.worker_id = $1
+    ORDER BY 
+      CASE WHEN c.priority = 'critical' THEN 1
+           WHEN c.priority = 'high' THEN 2
+           WHEN c.priority = 'medium' THEN 3
+           ELSE 4 END, 
+      c.created_at DESC
+    LIMIT $2 OFFSET $3;
+  `;
+  const result = await pool.query(query, [worker_id, limit, offset]);
+  return result.rows;
+},
+
+  
 };
 
 module.exports = { ComplainModel };

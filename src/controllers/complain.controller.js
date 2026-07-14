@@ -314,15 +314,16 @@ const getComplaint = async (req, res, next) => {
 const updateStatus = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { status, changed_by, notes, worker_id, department_id } = req.body;
+    const { status, notes, worker_id, department_id } = req.body;
 
     if (!status) {
       return next(new ApiError(400, "status is required."));
     }
+   
+const changed_by = req.user_id; 
     if (!changed_by) {
-      return next(new ApiError(400, "changed_by (user ID) is required."));
+      return next(new ApiError(401, "Unauthorized: Identity context missing."));
     }
-
     const complaint = await ComplainModel.getComplaintById(id);
     if (!complaint) {
       return next(new ApiError(404, "Complaint not found."));
@@ -467,6 +468,79 @@ const filterComplainForAdmin = async (req, res, next) => {
   }
 };
 
+const manualAssignComplaint = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { worker_id, department_id, notes } = req.body;
+
+    if (!worker_id && !department_id) {
+      return next(new ApiError(400, "Provide either worker_id or department_id to override routing."));
+    }
+const changed_by = req.user_id;
+    const complaint = await ComplainModel.getComplaintById(id);
+    if (!complaint) return next(new ApiError(404, "Complaint not found."));
+
+    const updates = { ai_override: true };
+    if (department_id) updates.department_id = parseInt(department_id);
+
+    const updatedComplaint = await ComplainModel.updateComplaint(id, updates);
+
+    let assignment = null;
+    if (worker_id) {
+      assignment = await ComplainModel.assignComplaint({
+        complaint_id: id,
+        worker_id,
+        assigned_by: req.user_id,
+        notes: notes || "Manually routed by Administration.",
+      });
+
+      
+      await ComplainModel.updateComplaint(id, { status: "assigned" });
+    }
+
+    // Append changes directly to status history tracking
+    await ComplainModel.createStatusHistory({
+      complaint_id: id,
+      old_status: complaint.status,
+      new_status: worker_id ? "assigned" : complaint.status,
+      changed_by: req.user_id,
+      notes: notes || `Manual routing administrative override processed.`,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Complaint manual assignment processed successfully.",
+      complaint: updatedComplaint,
+      assignment,
+    });
+  } catch (error) {
+    next(new ApiError(500, error.message));
+  }
+};
+
+
+const getWorkerTasks = async (req, res, next) => {
+  try {
+    const page = Number(req.query.page) || 1;
+    const limit = Number(req.query.limit) || 10;
+    const offset = (page - 1) * limit;
+
+    const tasks = await ComplainModel.getWorkerTasks(req.user_id, limit, offset);
+
+    return res.status(200).json({
+      success: true,
+      count: tasks.length,
+      page,
+      limit,
+      hasMore: tasks.length === limit,
+      tasks,
+    });
+  } catch (error) {
+    next(new ApiError(500, error.message));
+  }
+};
+
+
 module.exports = {
   createComplaint,
   listComplaints,
@@ -474,4 +548,6 @@ module.exports = {
   updateStatus,
   deleteComplaint,
   filterComplainForAdmin,
+  manualAssignComplaint,
+  getWorkerTasks
 };
