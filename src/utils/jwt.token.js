@@ -20,8 +20,19 @@ const decodeToken = async (token) => {
   return decodedToken;
 };
 
+const generateRefreshToken = (data) => {
+  const refreshToken = jwt.sign(
+    { id: data.id },
+    process.env.JWT_REFRESH_SECRET || 'fallback_refresh_secret',
+    { expiresIn: "7d" }
+  );
+  return refreshToken;
+};
+
+
 module.exports = {
   generateToken,
   decodeToken,
+  generateRefreshToken
 };
 

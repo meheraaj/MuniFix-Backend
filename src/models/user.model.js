@@ -49,6 +49,36 @@ const UserModel = {
     return result.rows[0] || null;
   },
 
+  async saveRefreshToken(userId, tokenHash, expiresAt) {
+  const query = `
+    INSERT INTO refresh_tokens (user_id, token_hash, expires_at)
+    VALUES ($1, $2, $3)
+    RETURNING *;
+  `;
+  const result = await pool.query(query, [userId, tokenHash, expiresAt]);
+  return result.rows[0];
+},
+
+async revokeRefreshToken(tokenHash) {
+  const query = `
+    UPDATE refresh_tokens 
+    SET is_revoked = TRUE 
+    WHERE token_hash = $1 
+    RETURNING *;
+  `;
+  const result = await pool.query(query, [tokenHash]);
+  return result.rowCount > 0;
+},
+
+async findRefreshToken(tokenHash) {
+  const query = `
+    SELECT * FROM refresh_tokens 
+    WHERE token_hash = $1 AND is_revoked = FALSE AND expires_at > NOW();
+  `;
+  const result = await pool.query(query, [tokenHash]);
+  return result.rows[0] || null;
+},
+
   //
 };
 
