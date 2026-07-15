@@ -38,14 +38,14 @@ const UserModel = {
     return result.rows[0];
   },
 
-  async loginUser({ email, password }) {
+  async loginUser({ em, password }) {
     const queryText = `
     SELECT id,email,password,role
     FROM users
     WHERE email = $1
     `;
 
-    const result = await pool.query(queryText, [email]);
+    const result = await pool.query(queryText, [em]);
     return result.rows[0] || null;
   },
 

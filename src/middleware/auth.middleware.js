@@ -5,9 +5,13 @@ const { decodeToken } = require("../utils/jwt.token.js");
 const checkAuth = async (req, res, next) => {
   const authHeader = req.headers.authorization;
 
+
   if (!authHeader || !authHeader.startsWith("Bearer")) {
     return next(new ApiError(401, "Unauthorized"));
   }
+  if(authHeader.length <= 6)
+        return next(new ApiError(401, "Unauthorized"));
+
 
   try {
     const token = authHeader.split(" ")[1];

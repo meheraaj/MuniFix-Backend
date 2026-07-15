@@ -76,4 +76,30 @@ const validRoles = ["citizen", "field_worker", "dept_admin", "super_admin"];
   }
 };
 
-module.exports = { getDepartments, getDepartmentWorkers, updateUserRole };
+
+//create new dept
+const createDepartment = async (req, res, next) => {
+  try {
+    const { name, description } = req.body;
+
+    if (!name || name.trim() === "") {
+      return next(new ApiError(400, "Department name is required."));
+    }
+
+    const query = `
+      INSERT INTO departments (name, description)
+      VALUES ($1, $2)
+      RETURNING id, name, description;
+    `;
+    const result = await pool.query(query, [name, description || null]);
+
+    return res.status(201).json({
+      success: true,
+      message: "New municipal department registered successfully.",
+      department: result.rows[0],
+    });
+  } catch (error) {
+    next(new ApiError(500, error.message));
+  }
+};
+module.exports = { getDepartments, getDepartmentWorkers, updateUserRole,createDepartment };

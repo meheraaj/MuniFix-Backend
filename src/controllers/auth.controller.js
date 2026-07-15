@@ -49,12 +49,14 @@ const register = async (req, res, next) => {
 const login = async (req, res, next) => {
   try {
     const { email, password } = req.body;
-    const existingUser = await UserModel.findByEmail(email);
+    const em = email.toLowerCase()
+    const existingUser = await UserModel.findByEmail(em);
     if (!existingUser) {
       return next(new ApiError(409, "Account not found with this email."));
     }
+    
 
-    const loginResponse = await UserModel.loginUser({ email, password });
+    const loginResponse = await UserModel.loginUser({ em, password });
 
     let matched = await verifyPassword(password, loginResponse.password);
 
@@ -72,14 +74,14 @@ const login = async (req, res, next) => {
   return res.status(200).json({
     success: true,
     message: "Login successful",
-    users: { email: email, id: loginResponse.id },
+    users: { email: em, id: loginResponse.id },
     authtoken: jwtToken,
     refreshToken: refreshToken, // Send to client to store securely
   });
 } else {
       return res.status(400).json({
         success: false,
-        message: "wrong password.",
+        message: "Invalid password.",
         email: email,
       });
     }
