@@ -331,6 +331,19 @@ const changed_by = req.user_id;
 
     const oldStatus = complaint.status;
 
+    // Check if citizen is cancelling their own pending complaint
+    if (req.role === "citizen") {
+      if (status !== "cancelled") {
+        return next(new ApiError(403, "Forbidden: Citizens can only cancel complaints."));
+      }
+      if (complaint.citizen_id !== req.user_id) {
+        return next(new ApiError(403, "Forbidden: You do not own this complaint."));
+      }
+      if (oldStatus !== "pending") {
+        return next(new ApiError(400, "Only pending complaints can be cancelled."));
+      }
+    }
+
     // Build fields to update in the complaints table
     const updates = { status };
     if (department_id) {
@@ -541,6 +554,54 @@ const getWorkerTasks = async (req, res, next) => {
 };
 
 
+const editComplaint = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { description, category, latitude, longitude } = req.body;
+
+    const complaint = await ComplainModel.getComplaintById(id);
+    if (!complaint) {
+      return next(new ApiError(404, "Complaint not found."));
+    }
+
+    // Role and ownership checks
+    if (req.role === "citizen" && complaint.citizen_id !== req.user_id) {
+      return next(new ApiError(403, "Forbidden: You do not own this complaint."));
+    }
+
+    // Restriction check
+    if (complaint.status !== "pending") {
+      return next(new ApiError(400, "Only pending complaints can be edited."));
+    }
+
+    const updates = {};
+    if (description !== undefined) updates.description = description;
+    if (category !== undefined) updates.category = category;
+    if (latitude !== undefined) updates.latitude = parseFloat(latitude);
+    if (longitude !== undefined) updates.longitude = parseFloat(longitude);
+
+    const updatedComplaint = await ComplainModel.updateComplaint(id, updates);
+
+    // Record status history change
+    await ComplainModel.createStatusHistory({
+      complaint_id: id,
+      old_status: complaint.status,
+      new_status: complaint.status,
+      changed_by: req.user_id,
+      notes: "Complaint edited by citizen.",
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Complaint updated successfully",
+      complaint: updatedComplaint,
+    });
+  } catch (error) {
+    next(new ApiError(500, error.message));
+  }
+};
+
+
 module.exports = {
   createComplaint,
   listComplaints,
@@ -549,5 +610,6 @@ module.exports = {
   deleteComplaint,
   filterComplainForAdmin,
   manualAssignComplaint,
-  getWorkerTasks
+  getWorkerTasks,
+  editComplaint,
 };
