@@ -154,7 +154,8 @@ const refreshSession = async (req, res, next) => {
 
 const verifyOtp = async (req, res, next) => {
   try {
-    const { email, otp } = req.body;
+    const { email } = req.body;
+    const otp = req.body.otp || req.body.otp_code;
     if (!email || !otp) {
       return next(new ApiError(400, "Email and OTP code are required fields."));
     }
