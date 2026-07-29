@@ -256,11 +256,11 @@ const createComplaint = async (req, res, next) => {
 const listComplaints = async (req, res, next) => {
   try {
     // Allow reading user ID & Role from headers or query parameters for standalone testing
-    const citizen_id = req.query.citizen_id || req.headers["x-user-id"];
+    const citizen_id = req.query.citizen_id || req.headers["x-user-id"] || req.user_id;
     const department_id = req.query.department_id || req.headers["x-department-id"];
     const status = req.query.status;
     const category = req.query.category;
-    const userRole = req.query.role || req.headers["x-user-role"] || "citizen";
+    const userRole = req.query.role || req.headers["x-user-role"] || req.role || "citizen";
 
     // Filtering options
     const filterOptions = { status, category };
