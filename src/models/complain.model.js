@@ -321,7 +321,75 @@ const ComplainModel = {
   return result.rows;
 },
 
-  
+  async searchComplaints({ q, category, priority, status, date, role, user_id, department_id }) {
+    let query = `
+      SELECT c.*, 
+             u.name as citizen_name, u.email as citizen_email,
+             d.name as department_name
+      FROM complaints c
+      LEFT JOIN users u ON c.citizen_id = u.id
+      LEFT JOIN departments d ON c.department_id = d.id
+      WHERE 1=1
+    `;
+    const values = [];
+    let paramIndex = 1;
+
+    // Role-based filtering context
+    if (role === "citizen" && user_id) {
+      query += ` AND c.citizen_id = $${paramIndex}`;
+      values.push(user_id);
+      paramIndex++;
+    } else if (role === "dept_admin" && department_id) {
+      query += ` AND c.department_id = $${paramIndex}`;
+      values.push(parseInt(department_id));
+      paramIndex++;
+    }
+
+    if (q) {
+      query += ` AND (c.description ILIKE $${paramIndex} OR u.name ILIKE $${paramIndex})`;
+      values.push(`%${q}%`);
+      paramIndex++;
+    }
+
+    if (category) {
+      query += ` AND c.category::text = $${paramIndex}`;
+      values.push(category);
+      paramIndex++;
+    }
+
+    if (priority) {
+      query += ` AND c.priority::text = $${paramIndex}`;
+      values.push(priority);
+      paramIndex++;
+    }
+
+    if (status) {
+      query += ` AND c.status::text = $${paramIndex}`;
+      values.push(status);
+      paramIndex++;
+    }
+
+    if (date) {
+      if (date === "today") {
+        query += ` AND c.created_at >= CURRENT_DATE`;
+      } else if (date === "yesterday") {
+        query += ` AND c.created_at >= CURRENT_DATE - INTERVAL '1 day' AND c.created_at < CURRENT_DATE`;
+      } else if (date === "week") {
+        query += ` AND c.created_at >= CURRENT_DATE - INTERVAL '7 days'`;
+      } else if (date === "month") {
+        query += ` AND c.created_at >= CURRENT_DATE - INTERVAL '30 days'`;
+      } else {
+        query += ` AND c.created_at::date = $${paramIndex}::date`;
+        values.push(date);
+        paramIndex++;
+      }
+    }
+
+    query += ` ORDER BY c.created_at DESC`;
+
+    const result = await pool.query(query, values);
+    return result.rows;
+  }
 };
 
 module.exports = { ComplainModel };

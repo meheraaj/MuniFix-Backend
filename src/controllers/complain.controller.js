@@ -376,6 +376,24 @@ const changed_by = req.user_id;
       });
     }
 
+    // Insert notifications dynamically
+    const pool = require("../config/db.js");
+    if (updatedComplaint.citizen_id && oldStatus !== status) {
+      const msg = `Your complaint status has been updated to "${status}".`;
+      await pool.query(
+        `INSERT INTO notifications (user_id, complaint_id, message) VALUES ($1, $2, $3)`,
+        [updatedComplaint.citizen_id, id, msg]
+      ).catch(err => console.error("Error creating status notification:", err));
+    }
+
+    if (worker_id) {
+      const msg = `New task assigned: "${updatedComplaint.description.substring(0, 60)}..."`;
+      await pool.query(
+        `INSERT INTO notifications (user_id, complaint_id, message) VALUES ($1, $2, $3)`,
+        [worker_id, id, msg]
+      ).catch(err => console.error("Error creating assignment notification:", err));
+    }
+
     return res.status(200).json({
       success: true,
       message: "Complaint status updated successfully",
@@ -602,6 +620,76 @@ const editComplaint = async (req, res, next) => {
 };
 
 
+const searchComplaints = async (req, res, next) => {
+  try {
+    const { q, category, priority, status, date } = req.query;
+
+    // Use token/request auth contexts
+    const role = req.role;
+    const user_id = req.user_id;
+
+    // Map UI category values to DB values
+    let dbCategory = category;
+    if (category) {
+      const lower = category.toLowerCase();
+      if (lower === "waste") dbCategory = "Waste Management";
+      else if (lower === "roads") dbCategory = "Road Repair";
+      else if (lower === "water") dbCategory = "Waterlogging";
+      else if (lower === "lighting") dbCategory = "Electricity";
+    }
+
+    // Map UI status values to DB values
+    let dbStatus = status;
+    if (status) {
+      const lower = status.toLowerCase();
+      if (lower === "in progress") dbStatus = "in_progress";
+      else if (lower === "pending approval" || lower === "pending") dbStatus = "pending";
+      else if (lower === "dispatched" || lower === "assigned") dbStatus = "assigned";
+      else if (lower === "resolved") dbStatus = "resolved";
+      else if (lower === "cancelled") dbStatus = "cancelled";
+    }
+
+    // Map priority
+    let dbPriority = priority;
+    if (priority) {
+      dbPriority = priority.toLowerCase();
+    }
+
+    let department_id = null;
+    if (role === "dept_admin") {
+      if (req.email) {
+        const { UserModel } = require("../models/user.model.js");
+        const user = await UserModel.findByEmail(req.email);
+        if (user && user.department_id) {
+          department_id = user.department_id;
+        }
+      }
+      if (!department_id) {
+        department_id = req.headers["x-department-id"] || req.query.department_id;
+      }
+    }
+
+    const complains = await ComplainModel.searchComplaints({
+      q,
+      category: dbCategory,
+      priority: dbPriority,
+      status: dbStatus,
+      date,
+      role,
+      user_id,
+      department_id,
+    });
+
+    return res.status(200).json({
+      success: true,
+      count: complains.length,
+      complains,
+    });
+  } catch (error) {
+    next(new ApiError(500, error.message));
+  }
+};
+
 module.exports = {
   createComplaint,
   listComplaints,
@@ -612,4 +700,5 @@ module.exports = {
   manualAssignComplaint,
   getWorkerTasks,
   editComplaint,
+  searchComplaints,
 };
