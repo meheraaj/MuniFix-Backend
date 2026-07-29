@@ -36,9 +36,16 @@ const register = async (req, res, next) => {
       role,
     });
 
+    // Generate 6-digit verification OTP
+    const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 mins
+    await UserModel.saveOtp(newUser.id, otpCode, expiresAt);
+
+    console.log(`\n==========================================\nREGISTRATION OTP FOR ${email}: ${otpCode}\n==========================================\n`);
+
     return res.status(201).json({
       success: true,
-      message: "Account registered successfully",
+      message: "Account registered successfully. Please verify your email.",
       user: newUser,
     });
   } catch (error) {
@@ -145,9 +152,67 @@ const refreshSession = async (req, res, next) => {
   }
 };
 
+const verifyOtp = async (req, res, next) => {
+  try {
+    const { email, otp } = req.body;
+    if (!email || !otp) {
+      return next(new ApiError(400, "Email and OTP code are required fields."));
+    }
+
+    const user = await UserModel.findByEmail(email);
+    if (!user) {
+      return next(new ApiError(404, "User not found."));
+    }
+
+    const validOtp = await UserModel.findValidOtp(user.id, otp);
+    if (!validOtp) {
+      return next(new ApiError(400, "Invalid, expired, or already used OTP."));
+    }
+
+    await UserModel.markOtpAsUsed(validOtp.id);
+    await UserModel.verifyUserEmail(user.id);
+
+    return res.status(200).json({
+      success: true,
+      message: "Email verified successfully.",
+    });
+  } catch (error) {
+    next(new ApiError(500, error.message));
+  }
+};
+
+const forgotPassword = async (req, res, next) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return next(new ApiError(400, "Email is required."));
+    }
+
+    const user = await UserModel.findByEmail(email);
+    if (!user) {
+      return next(new ApiError(404, "User not found with this email."));
+    }
+
+    const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 mins
+    await UserModel.saveOtp(user.id, otpCode, expiresAt);
+
+    console.log(`\n==========================================\nPASSWORD RESET OTP FOR ${email}: ${otpCode}\n==========================================\n`);
+
+    return res.status(200).json({
+      success: true,
+      message: "Password reset OTP sent successfully.",
+    });
+  } catch (error) {
+    next(new ApiError(500, error.message));
+  }
+};
 
 module.exports = {
   register,
   login,
-  signout, refreshSession
+  signout,
+  refreshSession,
+  verifyOtp,
+  forgotPassword,
 };

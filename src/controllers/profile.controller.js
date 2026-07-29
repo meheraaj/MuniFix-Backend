@@ -2,13 +2,23 @@
 const cloudinary = require("../config/cloudinary.js");
 const pool = require("../config/db.js");
 const ApiError = require("../utils/apiError");
+const { UserModel } = require("../models/user.model.js");
 
 const profile = async (req, res, next) => {
-  res.status(200).json({
-    success: true,
-    message: "Valid JWT",
-    email: req.email,
-  });
+  try {
+    const user = await UserModel.findByEmail(req.email);
+    if (!user) {
+      return next(new ApiError(404, "User not found."));
+    }
+    const { password, ...userWithoutPassword } = user;
+    res.status(200).json({
+      success: true,
+      message: "Valid JWT",
+      profile: userWithoutPassword,
+    });
+  } catch (error) {
+    next(new ApiError(500, error.message));
+  }
 };
 
 
