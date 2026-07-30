@@ -256,11 +256,11 @@ const createComplaint = async (req, res, next) => {
 const listComplaints = async (req, res, next) => {
   try {
     // Allow reading user ID & Role from headers or query parameters for standalone testing
-    const citizen_id = req.query.citizen_id || req.headers["x-user-id"];
+    const citizen_id = req.query.citizen_id || req.headers["x-user-id"] || req.user_id;
     const department_id = req.query.department_id || req.headers["x-department-id"];
     const status = req.query.status;
     const category = req.query.category;
-    const userRole = req.query.role || req.headers["x-user-role"] || "citizen";
+    const userRole = req.query.role || req.headers["x-user-role"] || req.role || "citizen";
 
     // Filtering options
     const filterOptions = { status, category };
@@ -331,6 +331,19 @@ const changed_by = req.user_id;
 
     const oldStatus = complaint.status;
 
+    // Check if citizen is cancelling their own pending complaint
+    if (req.role === "citizen") {
+      if (status !== "cancelled") {
+        return next(new ApiError(403, "Forbidden: Citizens can only cancel complaints."));
+      }
+      if (complaint.citizen_id !== req.user_id) {
+        return next(new ApiError(403, "Forbidden: You do not own this complaint."));
+      }
+      if (oldStatus !== "pending") {
+        return next(new ApiError(400, "Only pending complaints can be cancelled."));
+      }
+    }
+
     // Build fields to update in the complaints table
     const updates = { status };
     if (department_id) {
@@ -361,6 +374,24 @@ const changed_by = req.user_id;
         assigned_by: changed_by,
         notes: notes || "Assigned by department admin.",
       });
+    }
+
+    // Insert notifications dynamically
+    const pool = require("../config/db.js");
+    if (updatedComplaint.citizen_id && oldStatus !== status) {
+      const msg = `Your complaint status has been updated to "${status}".`;
+      await pool.query(
+        `INSERT INTO notifications (user_id, complaint_id, message) VALUES ($1, $2, $3)`,
+        [updatedComplaint.citizen_id, id, msg]
+      ).catch(err => console.error("Error creating status notification:", err));
+    }
+
+    if (worker_id) {
+      const msg = `New task assigned: "${updatedComplaint.description.substring(0, 60)}..."`;
+      await pool.query(
+        `INSERT INTO notifications (user_id, complaint_id, message) VALUES ($1, $2, $3)`,
+        [worker_id, id, msg]
+      ).catch(err => console.error("Error creating assignment notification:", err));
     }
 
     return res.status(200).json({
@@ -541,6 +572,124 @@ const getWorkerTasks = async (req, res, next) => {
 };
 
 
+const editComplaint = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { description, category, latitude, longitude } = req.body;
+
+    const complaint = await ComplainModel.getComplaintById(id);
+    if (!complaint) {
+      return next(new ApiError(404, "Complaint not found."));
+    }
+
+    // Role and ownership checks
+    if (req.role === "citizen" && complaint.citizen_id !== req.user_id) {
+      return next(new ApiError(403, "Forbidden: You do not own this complaint."));
+    }
+
+    // Restriction check
+    if (complaint.status !== "pending") {
+      return next(new ApiError(400, "Only pending complaints can be edited."));
+    }
+
+    const updates = {};
+    if (description !== undefined) updates.description = description;
+    if (category !== undefined) updates.category = category;
+    if (latitude !== undefined) updates.latitude = parseFloat(latitude);
+    if (longitude !== undefined) updates.longitude = parseFloat(longitude);
+
+    const updatedComplaint = await ComplainModel.updateComplaint(id, updates);
+
+    // Record status history change
+    await ComplainModel.createStatusHistory({
+      complaint_id: id,
+      old_status: complaint.status,
+      new_status: complaint.status,
+      changed_by: req.user_id,
+      notes: "Complaint edited by citizen.",
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Complaint updated successfully",
+      complaint: updatedComplaint,
+    });
+  } catch (error) {
+    next(new ApiError(500, error.message));
+  }
+};
+
+
+const searchComplaints = async (req, res, next) => {
+  try {
+    const { q, category, priority, status, date } = req.query;
+
+    // Use token/request auth contexts
+    const role = req.role;
+    const user_id = req.user_id;
+
+    // Map UI category values to DB values
+    let dbCategory = category;
+    if (category) {
+      const lower = category.toLowerCase();
+      if (lower === "waste") dbCategory = "Waste Management";
+      else if (lower === "roads") dbCategory = "Road Repair";
+      else if (lower === "water") dbCategory = "Waterlogging";
+      else if (lower === "lighting") dbCategory = "Electricity";
+    }
+
+    // Map UI status values to DB values
+    let dbStatus = status;
+    if (status) {
+      const lower = status.toLowerCase();
+      if (lower === "in progress") dbStatus = "in_progress";
+      else if (lower === "pending approval" || lower === "pending") dbStatus = "pending";
+      else if (lower === "dispatched" || lower === "assigned") dbStatus = "assigned";
+      else if (lower === "resolved") dbStatus = "resolved";
+      else if (lower === "cancelled") dbStatus = "cancelled";
+    }
+
+    // Map priority
+    let dbPriority = priority;
+    if (priority) {
+      dbPriority = priority.toLowerCase();
+    }
+
+    let department_id = null;
+    if (role === "dept_admin") {
+      if (req.email) {
+        const { UserModel } = require("../models/user.model.js");
+        const user = await UserModel.findByEmail(req.email);
+        if (user && user.department_id) {
+          department_id = user.department_id;
+        }
+      }
+      if (!department_id) {
+        department_id = req.headers["x-department-id"] || req.query.department_id;
+      }
+    }
+
+    const complains = await ComplainModel.searchComplaints({
+      q,
+      category: dbCategory,
+      priority: dbPriority,
+      status: dbStatus,
+      date,
+      role,
+      user_id,
+      department_id,
+    });
+
+    return res.status(200).json({
+      success: true,
+      count: complains.length,
+      complains,
+    });
+  } catch (error) {
+    next(new ApiError(500, error.message));
+  }
+};
+
 module.exports = {
   createComplaint,
   listComplaints,
@@ -549,5 +698,7 @@ module.exports = {
   deleteComplaint,
   filterComplainForAdmin,
   manualAssignComplaint,
-  getWorkerTasks
+  getWorkerTasks,
+  editComplaint,
+  searchComplaints,
 };
