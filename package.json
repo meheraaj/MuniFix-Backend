@@ -5,7 +5,10 @@
   "main": "src/app.js",
   "scripts": {
     "start": "node src/app.js",
-    "dev": "nodemon src/app.js"
+    "dev": "nodemon src/app.js",
+    "test": "jest --runInBand --detectOpenHandles",
+    "test:coverage": "jest --coverage --runInBand --detectOpenHandles",
+    "test:report": "jest --coverage --runInBand --detectOpenHandles --coverageReporters=text --coverageReporters=text-summary > coverage-report.txt"
   },
   "keywords": [
     "MuniFix"
