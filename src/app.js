@@ -14,14 +14,14 @@ app.use(cors({
   credentials: true
 }));
 app.use(express.json());
-routes.get("/", (req, res) => {
+
+app.use("/api", routes);
+app.get("/", (req, res) => {
     res.status(200).json({
         success: true,
         message: "Welcome to MuniFix API",
     });
 })
-app.use("/api", routes);
-
 
 // 404 error
 app.use((req, res, next) => {
@@ -32,7 +32,6 @@ app.use((err, req, res, next) => {
   res.status(err.statusCode || 500).json({
     success: false,
     message: err.message || "Internal Server Error",
-    stack: err.stack,
   });
 });
 
