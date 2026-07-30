@@ -10,8 +10,22 @@ const logsRouter = require("./routes/logs.routes.js");
 
 const app = express();
 
+// CORS: allow configured frontend domain + known Vercel deployments
+const ALLOWED_ORIGINS = [
+  process.env.FRONTEND_DOMAIN,         // set this in Vercel env vars
+  "https://muni-fix.vercel.app",       // primary Vercel deployment
+  "http://localhost:3000",             // local dev
+].filter(Boolean); // remove undefined/empty entries
+
 app.use(cors({
-  origin: process.env.FRONTEND_DOMAIN,
+  origin: (origin, callback) => {
+    // Allow server-to-server requests (no origin header) and whitelisted origins
+    if (!origin || ALLOWED_ORIGINS.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error(`CORS: origin '${origin}' not allowed`));
+    }
+  },
   credentials: true
 }));
 app.use(express.json());
