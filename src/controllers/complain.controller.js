@@ -2,6 +2,7 @@ const { GoogleGenAI } = require("@google/genai");
 const { ComplainModel } = require("../models/complain.model.js");
 const cloudinary = require("../config/cloudinary.js");
 const ApiError = require("../utils/apiError.js");
+const pool = require("../config/db.js");
 
 // Local fallback rule-based classification
 function classifyComplaintLocal(description) {
@@ -145,9 +146,9 @@ Citizen description: "${description}"`
 const createComplaint = async (req, res, next) => {
   try {
     const { description, latitude, longitude, category, priority, department_id } = req.body;
-    let citizen_id = req.user_id 
+    const citizen_id = req.user_id;
     if (!citizen_id) {
-      return next(new ApiError(400, "citizen_id is required."));
+      return next(new ApiError(401, "Unauthorized: User ID not found."));
     }
     if (!description || description.trim() === "") {
       return next(new ApiError(400, "Complaint description is required."));
@@ -243,6 +244,13 @@ const createComplaint = async (req, res, next) => {
       notes: "Complaint registered in MuniFix system.",
     });
 
+    // Log to activity_logs
+    await pool.query(
+      `INSERT INTO activity_logs (actor_id, action, entity_type, entity_id, description)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [citizen_id || req.user_id, "complaint_submitted", "complaint", newComplaint.id, `Complaint submitted: ${newComplaint.description.substring(0, 50)}...`]
+    ).catch(err => console.error("Error logging complaint submission:", err));
+
     return res.status(201).json({
       success: true,
       message: "Complaint registered successfully",
@@ -320,7 +328,7 @@ const updateStatus = async (req, res, next) => {
       return next(new ApiError(400, "status is required."));
     }
    
-const changed_by = req.user_id; 
+    const changed_by = req.user_id; 
     if (!changed_by) {
       return next(new ApiError(401, "Unauthorized: Identity context missing."));
     }
@@ -344,10 +352,70 @@ const changed_by = req.user_id;
       }
     }
 
+    // Process image files if uploaded
+    let resolution_url = null;
+    if (req.files && req.files.length > 0) {
+      const uploadPromises = req.files.map((file) => {
+        return new Promise((resolve, reject) => {
+          if (
+            process.env.CLOUDINARY_CLOUD_NAME &&
+            process.env.CLOUDINARY_API_KEY &&
+            process.env.CLOUDINARY_API_SECRET
+          ) {
+            const stream = cloudinary.uploader.upload_stream(
+              { folder: "munifix" },
+              (error, result) => {
+                if (error) reject(error);
+                else resolve(result.secure_url);
+              }
+            );
+            stream.end(file.buffer);
+          } else {
+            resolve(`https://via.placeholder.com/600x400.png?text=Mock+Upload+${Date.now()}`);
+          }
+        });
+      });
+      try {
+        const urls = await Promise.all(uploadPromises);
+        if (urls.length > 0) resolution_url = urls[0];
+      } catch (err) {
+        console.error("Cloudinary upload failed, falling back to placeholders:", err.message);
+        resolution_url = `https://via.placeholder.com/600x400.png?text=Mock+Upload+${Date.now()}`;
+      }
+    } else if (req.file) {
+      const singleUploadPromise = new Promise((resolve, reject) => {
+        if (
+          process.env.CLOUDINARY_CLOUD_NAME &&
+          process.env.CLOUDINARY_API_KEY &&
+          process.env.CLOUDINARY_API_SECRET
+        ) {
+          const stream = cloudinary.uploader.upload_stream(
+            { folder: "munifix" },
+            (error, result) => {
+              if (error) reject(error);
+              else resolve(result.secure_url);
+            }
+          );
+          stream.end(req.file.buffer);
+        } else {
+          resolve(`https://via.placeholder.com/600x400.png?text=Mock+Upload+${Date.now()}`);
+        }
+      });
+      try {
+        resolution_url = await singleUploadPromise;
+      } catch (err) {
+        console.error("Cloudinary upload failed, falling back to placeholder:", err.message);
+        resolution_url = `https://via.placeholder.com/600x400.png?text=Mock+Upload+${Date.now()}`;
+      }
+    }
+
     // Build fields to update in the complaints table
     const updates = { status };
     if (department_id) {
       updates.department_id = parseInt(department_id);
+    }
+    if (resolution_url) {
+      updates.image_url = resolution_url;
     }
 
     const updatedComplaint = await ComplainModel.updateComplaint(id, updates);
@@ -360,6 +428,15 @@ const changed_by = req.user_id;
       changed_by,
       notes: notes || `Status updated from ${oldStatus} to ${status}.`,
     });
+
+    // Log status_updated to activity_logs
+    if (oldStatus !== status) {
+      await pool.query(
+        `INSERT INTO activity_logs (actor_id, action, entity_type, entity_id, description)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [changed_by, "status_updated", "complaint", id, `Status updated from ${oldStatus} to ${status}`]
+      ).catch(err => console.error("Error logging status update:", err));
+    }
 
     // Handle worker assignments if status is 'assigned' or a worker is specified
     let assignment = null;
@@ -374,6 +451,13 @@ const changed_by = req.user_id;
         assigned_by: changed_by,
         notes: notes || "Assigned by department admin.",
       });
+
+      // Log complaint_assigned to activity_logs
+      await pool.query(
+        `INSERT INTO activity_logs (actor_id, action, entity_type, entity_id, description)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [changed_by, "complaint_assigned", "complaint", id, `Complaint assigned to worker`]
+      ).catch(err => console.error("Error logging complaint assignment:", err));
     }
 
     // Insert notifications dynamically
@@ -413,6 +497,13 @@ const deleteComplaint = async (req, res, next) => {
     if (!deleted) {
       return next(new ApiError(404, "Complaint not found."));
     }
+
+    // Log to activity_logs
+    await pool.query(
+      `INSERT INTO activity_logs (actor_id, action, entity_type, entity_id, description)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [req.user_id, "complaint_deleted", "complaint", id, `Complaint ${id} was deleted`]
+    ).catch(err => console.error("Error logging complaint deletion:", err));
 
     return res.status(200).json({
       success: true,
@@ -537,6 +628,23 @@ const changed_by = req.user_id;
       changed_by: req.user_id,
       notes: notes || `Manual routing administrative override processed.`,
     });
+
+    // Log to activity_logs
+    if (worker_id) {
+      await pool.query(
+        `INSERT INTO activity_logs (actor_id, action, entity_type, entity_id, description)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [req.user_id, "complaint_assigned", "complaint", id, `Complaint manually assigned to worker`]
+      ).catch(err => console.error("Error logging manual complaint assignment:", err));
+    }
+
+    if (worker_id && complaint.status !== "assigned") {
+      await pool.query(
+        `INSERT INTO activity_logs (actor_id, action, entity_type, entity_id, description)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [req.user_id, "status_updated", "complaint", id, `Status updated from ${complaint.status} to assigned`]
+      ).catch(err => console.error("Error logging status update from manual assign:", err));
+    }
 
     return res.status(200).json({
       success: true,
@@ -690,6 +798,56 @@ const searchComplaints = async (req, res, next) => {
   }
 };
 
+const overrideCategory = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { category } = req.body;
+
+    if (!category) {
+      return next(new ApiError(400, "category is required."));
+    }
+
+    // Verify user role is dept_admin or super_admin
+    if (req.role !== "dept_admin" && req.role !== "super_admin") {
+      return next(new ApiError(403, "Forbidden: Access denied."));
+    }
+
+    const complaint = await ComplainModel.getComplaintById(id);
+    if (!complaint) {
+      return next(new ApiError(404, "Complaint not found."));
+    }
+
+    // Update complaint
+    const updatedComplaint = await ComplainModel.updateComplaint(id, {
+      category,
+      ai_override: true,
+    });
+
+    // Record in status_history
+    await ComplainModel.createStatusHistory({
+      complaint_id: id,
+      old_status: complaint.status,
+      new_status: complaint.status,
+      changed_by: req.user_id,
+      notes: "category_override",
+    });
+
+    // Log to activity_logs
+    await pool.query(
+      `INSERT INTO activity_logs (actor_id, action, entity_type, entity_id, description)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [req.user_id, "category_overridden", "complaint", id, `AI Category overridden to ${category}`]
+    ).catch(err => console.error("Error logging category override:", err));
+
+    return res.status(200).json({
+      success: true,
+      complaint: updatedComplaint,
+    });
+  } catch (error) {
+    next(new ApiError(500, error.message));
+  }
+};
+
 module.exports = {
   createComplaint,
   listComplaints,
@@ -701,4 +859,5 @@ module.exports = {
   getWorkerTasks,
   editComplaint,
   searchComplaints,
+  overrideCategory,
 };

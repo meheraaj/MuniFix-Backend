@@ -6,16 +6,19 @@ const pool = require("./config/db.js");
 require("dotenv").config();
 const ApiError = require("./utils/apiError.js");
 const routes = require("./routes/routes.js");
+const logsRouter = require("./routes/logs.routes.js");
 
 const app = express();
 
 app.use(cors({
-  origin: process.env.FRONTEND_DOMAIN, 
+  origin: process.env.FRONTEND_DOMAIN,
   credentials: true
 }));
 app.use(express.json());
 
 app.use("/api", routes);
+app.use("/api/logs", logsRouter);
+
 app.get("/", (req, res) => {
     res.status(200).json({
         success: true,
@@ -34,7 +37,6 @@ app.use((err, req, res, next) => {
     message: err.message || "Internal Server Error",
   });
 });
-
 
 module.exports = app;
 if (process.env.NODE_ENV !== "production") {

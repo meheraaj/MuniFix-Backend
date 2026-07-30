@@ -4,6 +4,7 @@ const ApiError = require("../utils/apiError");
 const express = require("express");
 const { verifyPassword } = require("../utils/validator.js");
 const { generateToken, generateRefreshToken } = require("../utils/jwt.token.js");
+const pool = require("../config/db.js");
 
 const register = async (req, res, next) => {
   try {
@@ -43,6 +44,13 @@ const register = async (req, res, next) => {
 
     console.log(`\n==========================================\nREGISTRATION OTP FOR ${email}: ${otpCode}\n==========================================\n`);
 
+    // Log to activity_logs
+    await pool.query(
+      `INSERT INTO activity_logs (actor_id, action, entity_type, entity_id, description)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [newUser.id, "user_registered", "user", newUser.id, `User ${newUser.name} registered`]
+    );
+
     return res.status(201).json({
       success: true,
       message: "Account registered successfully. Please verify your email.",
@@ -68,24 +76,31 @@ const login = async (req, res, next) => {
     let matched = await verifyPassword(password, loginResponse.password);
 
     if (matched) {
-  const jwtToken = generateToken(loginResponse);
-  const refreshToken = generateRefreshToken(loginResponse);
-  
-  // Hash token before storing in DB to defend against token-theft leaks
-  const tokenHash = crypto.createHash("sha256").update(refreshToken).digest("hex");
-  const expiresAt = new Date();
-  expiresAt.setDate(expiresAt.getDate() + 7); // 7 days expiration
+      const jwtToken = generateToken(loginResponse);
+      const refreshToken = generateRefreshToken(loginResponse);
+      
+      // Hash token before storing in DB to defend against token-theft leaks
+      const tokenHash = crypto.createHash("sha256").update(refreshToken).digest("hex");
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + 7); // 7 days expiration
 
-  await UserModel.saveRefreshToken(loginResponse.id, tokenHash, expiresAt);
+      await UserModel.saveRefreshToken(loginResponse.id, tokenHash, expiresAt);
 
-  return res.status(200).json({
-    success: true,
-    message: "Login successful",
-    users: { email: em, id: loginResponse.id },
-    authtoken: jwtToken,
-    refreshToken: refreshToken, // Send to client to store securely
-  });
-} else {
+      // Log to activity_logs
+      await pool.query(
+        `INSERT INTO activity_logs (actor_id, action, entity_type, entity_id, description)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [existingUser.id, "user_login", "user", existingUser.id, `User ${existingUser.name} logged in`]
+      );
+
+      return res.status(200).json({
+        success: true,
+        message: "Login successful",
+        users: { email: em, id: loginResponse.id },
+        authtoken: jwtToken,
+        refreshToken: refreshToken, // Send to client to store securely
+      });
+    } else {
       return res.status(400).json({
         success: false,
         message: "Invalid password.",
