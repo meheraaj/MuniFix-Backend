@@ -6,6 +6,7 @@ const pool = require("./config/db.js");
 require("dotenv").config();
 const ApiError = require("./utils/apiError.js");
 const routes = require("./routes/routes.js");
+const logsRouter = require("./routes/logs.routes.js");
 
 const app = express();
 
@@ -13,6 +14,7 @@ app.use(cors());
 app.use(express.json());
 
 app.use("/api", routes);
+app.use("/api/logs", logsRouter);
 
 //database test
 app.get("/testdb", async (req, res) => {
@@ -40,6 +42,13 @@ app.use((err, req, res, next) => {
   });
 });
 
-app.listen(process.env.PORT || 3000, () => {
-  console.log("Running on Port " + process.env.PORT || 3000);
+app.listen(process.env.PORT || 3000, async () => {
+  // Ensure address column exists (safe to run repeatedly: IF NOT EXISTS)
+  try {
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS address TEXT;`);
+    console.log("[migration] users.address column ready.");
+  } catch (err) {
+    console.error("[migration] Failed to ensure users.address column:", err.message);
+  }
+  console.log("Running on Port " + (process.env.PORT || 3000));
 });

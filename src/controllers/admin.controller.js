@@ -66,6 +66,13 @@ const validRoles = ["citizen", "field_worker", "dept_admin", "super_admin"];
 
     if (result.rowCount === 0) return next(new ApiError(404, "Target user record not found."));
 
+    // Log to activity_logs
+    await pool.query(
+      `INSERT INTO activity_logs (actor_id, action, entity_type, entity_id, description)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [req.user_id, "user_role_updated", "user", id, `User ${result.rows[0].name} role updated to ${role}`]
+    ).catch(err => console.error("Error logging user role update:", err));
+
     return res.status(200).json({
       success: true,
       message: "User role privileges modified successfully.",

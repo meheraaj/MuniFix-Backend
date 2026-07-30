@@ -5,7 +5,7 @@ const UserModel = {
   // Find by Email
   async findByEmail(email) {
     const datas = `
-        SELECT  id,name,email,password,role,department_id
+        SELECT id, name, email, phone, password, role, department_id, avatar_url, address, is_active, email_verified, created_at
         FROM users
         WHERE email = $1;
         `;
