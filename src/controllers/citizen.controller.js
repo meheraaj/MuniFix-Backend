@@ -1,50 +1,50 @@
 const ApiError = require("../utils/apiError.js");
 const { ComplainModel } = require("../models/complain.model.js");
 
-const addNewComplain = async (req, res, next) => {
-  const { longitude, latitude, city, street, title, description } = req.body;
-  try {
-    if (longitude && latitude && city && street && title && description) {
-      if (!req.files || req.files.length === 0) {
-        return next(new ApiError(400, "Minimum 1 image required"));
-      }
+// const addNewComplain = async (req, res, next) => {
+//   const { longitude, latitude, city, street, title, description } = req.body;
+//   try {
+//     if (longitude && latitude && city && street && title && description) {
+//       if (!req.files || req.files.length === 0) {
+//         return next(new ApiError(400, "Minimum 1 image required"));
+//       }
 
-      const uploadedFiles = req.files.map((file) => ({
-        file_url: file.path,
-        public_id: file.filename,
-      }));
+//       const uploadedFiles = req.files.map((file) => ({
+//         file_url: file.path,
+//         public_id: file.filename,
+//       }));
 
-      const imgURL = req.files.map((file) => file.path);
+//       const imgURL = req.files.map((file) => file.path);
 
-      const response = await ComplainModel.addNewComplain(
-        longitude,
-        latitude,
-        city,
-        street,
-        title,
-        description,
-        req.user_id,
-        imgURL
-      );
+//       const response = await ComplainModel.addNewComplain(
+//         longitude,
+//         latitude,
+//         city,
+//         street,
+//         title,
+//         description,
+//         req.user_id,
+//         imgURL
+//       );
 
-      res.status(200).json({
-        success: true,
-        message: "complain added successfully",
-        complain: response,
-        uploadedFiles,
-      });
-    } else {
-      return next(
-        new ApiError(
-          400,
-          "longitude, latitude, city, street, title, description cannot be empty"
-        )
-      );
-    }
-  } catch (error) {
-    return next(new ApiError(500, error.message));
-  }
-};
+//       res.status(200).json({
+//         success: true,
+//         message: "complain added successfully",
+//         complain: response,
+//         uploadedFiles,
+//       });
+//     } else {
+//       return next(
+//         new ApiError(
+//           400,
+//           "longitude, latitude, city, street, title, description cannot be empty"
+//         )
+//       );
+//     }
+//   } catch (error) {
+//     return next(new ApiError(500, error.message));
+//   }
+// };
 
 // Get Complain List By UserID
 const getComplainByUserId = async (req, res, next) => {
