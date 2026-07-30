@@ -14,7 +14,12 @@ app.use(cors({
   credentials: true
 }));
 app.use(express.json());
-
+routes.get("/", (req, res) => {
+    res.status(200).json({
+        success: true,
+        message: "Welcome to MuniFix API",
+    });
+})
 app.use("/api", routes);
 
 
