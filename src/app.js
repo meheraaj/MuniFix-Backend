@@ -9,23 +9,14 @@ const routes = require("./routes/routes.js");
 
 const app = express();
 
-app.use(cors());
+app.use(cors({
+  origin: process.env.FRONTEND_DOMAIN, 
+  credentials: true
+}));
 app.use(express.json());
 
 app.use("/api", routes);
 
-//database test
-app.get("/testdb", async (req, res) => {
-  try {
-    const ress = await pool.query("SELECT NOW()");
-    console.log("Connected:", ress.rows[0]);
-    res.json({
-      ress,
-    });
-  } catch (err) {
-    console.error(err);
-  }
-});
 
 // 404 error
 app.use((req, res, next) => {
@@ -40,6 +31,11 @@ app.use((err, req, res, next) => {
   });
 });
 
-app.listen(process.env.PORT || 3000, () => {
-  console.log("Running on Port " + process.env.PORT || 3000);
-});
+
+module.exports = app;
+if (process.env.NODE_ENV !== "production") {
+  const PORT = process.env.PORT || 3000;
+  app.listen(PORT, () => {
+    console.log(`Running on Port ${PORT}`);
+  });
+}
