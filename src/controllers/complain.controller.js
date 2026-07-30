@@ -146,7 +146,7 @@ Citizen description: "${description}"`
 const createComplaint = async (req, res, next) => {
   try {
     const { description, latitude, longitude, category, priority, department_id } = req.body;
-    let citizen_id = req.user_id 
+    const citizen_id = req.user_id;
     if (!citizen_id) {
       return next(new ApiError(401, "Unauthorized: User ID not found."));
     }
