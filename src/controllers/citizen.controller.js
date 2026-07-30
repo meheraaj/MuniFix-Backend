@@ -91,6 +91,6 @@ const getComplainByUserId = async (req, res, next) => {
 };
 
 module.exports = {
-  addNewComplain,
+  //addNewComplain,
   getComplainByUserId,
 };

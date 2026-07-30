@@ -19,6 +19,7 @@ routes.use("/notifications", notification_routes);
 routes.use("/departments", departments_routes);
 routes.use("/users", users_routes);
 
+
 module.exports = routes;
 
 
