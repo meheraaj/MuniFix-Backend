@@ -10,20 +10,14 @@ const logsRouter = require("./routes/logs.routes.js");
 
 const app = express();
 
-// 1. Define explicit CORS options
-const corsOptions = {
-  origin: ["https://muni-fix.vercel.app", "http://localhost:5173", "http://localhost:3000"],
-  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
-  credentials: true,
-  optionsSuccessStatus: 200 // Some legacy browsers (IE11, various SmartTVs) choke on 204
-};
-
-// 2. Apply CORS middleware
-app.use(cors(corsOptions));
-
-// 3. Handle OPTIONS preflight requests explicitly across all routes
-app.options("*", cors(corsOptions));
+app.use(
+  cors({
+    origin: ["https://muni-fix.vercel.app", "http://localhost:5173", "http://localhost:3000"],
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: true,
+  })
+);
 app.use(express.json());
 
 app.use("/api", routes);
