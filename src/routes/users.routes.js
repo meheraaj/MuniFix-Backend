@@ -51,8 +51,8 @@ router.get("/", checkAuth, async (req, res, next) => {
   }
 });
 
-// PATCH /api/users/:userId/status
-router.patch("/:userId/status", checkAuth, restrictTo("super_admin"), async (req, res, next) => {
+// PATCH /api/admin/users/:userId/status
+router.patch("/admin/:userId/status", checkAuth, restrictTo("super_admin"), async (req, res, next) => {
   try {
     const { userId } = req.params;
     const { is_active } = req.body;
