@@ -146,8 +146,7 @@ Citizen description: "${description}"`
 const createComplaint = async (req, res, next) => {
   try {
     const { description, latitude, longitude, category, priority, department_id } = req.body;
-    const citizen_id = req.user_id;
-
+    let citizen_id = req.user_id 
     if (!citizen_id) {
       return next(new ApiError(401, "Unauthorized: User ID not found."));
     }
@@ -214,7 +213,7 @@ const createComplaint = async (req, res, next) => {
 
     // Perform AI auto-routing and categorization
     const aiDetails = await classifyComplaintAI(description);
-
+    console.log("AI Classification Result:", aiDetails);
     const finalCategory = category || aiDetails.ai_category;
     const finalPriority = priority || aiDetails.ai_priority;
     const finalDeptId = department_id || aiDetails.department_id;

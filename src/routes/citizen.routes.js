@@ -6,13 +6,13 @@ const upload = require("../middleware/upload.middleware.js");
 
 const citizen_routes = express.Router();
 
-citizen_routes.post(
-  "/complain",
-  checkAuth,
-  restrictTo("citizen"),
-  upload.array("images", 6),
-  addNewComplain
-);
+// citizen_routes.post(
+//   "/complain",
+//   checkAuth,
+//   restrictTo("citizen"),
+//   upload.array("images", 6),
+//   addNewComplain
+// );
 
 citizen_routes.get(
   "/complain",
