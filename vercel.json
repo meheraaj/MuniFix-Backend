@@ -1,20 +1,9 @@
 {
   "version": 2,
-  "rewrites": [
-    {
-<<<<<<< HEAD
-      "src": "src/app.js",
-      "use": "@vercel/node"
-    }
-  ],
   "routes": [
     {
       "src": "/(.*)",
       "dest": "src/app.js"
-=======
-      "source": "/(.*)",
-      "destination": "/src/app.js"
->>>>>>> 07351af82d1060d7249fc7a2db78ce9f2c4aaa83
     }
   ]
 }
