@@ -347,11 +347,9 @@ const updateStatus = async (req, res, next) => {
   try {
     const { id } = req.params;
     const { status, notes, worker_id, department_id } = req.body;
-
     if (!status) {
       return next(new ApiError(400, "status is required."));
     }
-   
     const changed_by = req.user_id; 
     if (!changed_by) {
       return next(new ApiError(401, "Unauthorized: Identity context missing."));
@@ -360,7 +358,6 @@ const updateStatus = async (req, res, next) => {
     if (!complaint) {
       return next(new ApiError(404, "Complaint not found."));
     }
-
     const oldStatus = complaint.status;
 
     // Check if citizen is cancelling their own pending complaint
@@ -379,58 +376,7 @@ const updateStatus = async (req, res, next) => {
     // Process image files if uploaded
     let resolution_url = null;
     if (req.files && req.files.length > 0) {
-      const uploadPromises = req.files.map((file) => {
-        return new Promise((resolve, reject) => {
-          if (
-            process.env.CLOUDINARY_CLOUD_NAME &&
-            process.env.CLOUDINARY_API_KEY &&
-            process.env.CLOUDINARY_API_SECRET
-          ) {
-            const stream = cloudinary.uploader.upload_stream(
-              { folder: "munifix" },
-              (error, result) => {
-                if (error) reject(error);
-                else resolve(result.secure_url);
-              }
-            );
-            stream.end(file.buffer);
-          } else {
-            resolve(`https://via.placeholder.com/600x400.png?text=Mock+Upload+${Date.now()}`);
-          }
-        });
-      });
-      try {
-        const urls = await Promise.all(uploadPromises);
-        if (urls.length > 0) resolution_url = urls[0];
-      } catch (err) {
-        console.error("Cloudinary upload failed, falling back to placeholders:", err.message);
-        resolution_url = `https://via.placeholder.com/600x400.png?text=Mock+Upload+${Date.now()}`;
-      }
-    } else if (req.file) {
-      const singleUploadPromise = new Promise((resolve, reject) => {
-        if (
-          process.env.CLOUDINARY_CLOUD_NAME &&
-          process.env.CLOUDINARY_API_KEY &&
-          process.env.CLOUDINARY_API_SECRET
-        ) {
-          const stream = cloudinary.uploader.upload_stream(
-            { folder: "munifix" },
-            (error, result) => {
-              if (error) reject(error);
-              else resolve(result.secure_url);
-            }
-          );
-          stream.end(req.file.buffer);
-        } else {
-          resolve(`https://via.placeholder.com/600x400.png?text=Mock+Upload+${Date.now()}`);
-        }
-      });
-      try {
-        resolution_url = await singleUploadPromise;
-      } catch (err) {
-        console.error("Cloudinary upload failed, falling back to placeholder:", err.message);
-        resolution_url = `https://via.placeholder.com/600x400.png?text=Mock+Upload+${Date.now()}`;
-      }
+      resolution_url = `https://via.placeholder.com/600x400.png?text=Mock+Upload+${Date.now()}`;
     }
 
     // Build fields to update in the complaints table
@@ -441,7 +387,6 @@ const updateStatus = async (req, res, next) => {
     if (resolution_url) {
       updates.image_url = resolution_url;
     }
-
     const updatedComplaint = await ComplainModel.updateComplaint(id, updates);
 
     // Record status history change
@@ -468,37 +413,21 @@ const updateStatus = async (req, res, next) => {
       if (!worker_id) {
         return next(new ApiError(400, "worker_id is required to assign this complaint."));
       }
-
       assignment = await ComplainModel.assignComplaint({
         complaint_id: id,
         worker_id,
         assigned_by: changed_by,
         notes: notes || "Assigned by department admin.",
       });
-
-      // Log complaint_assigned to activity_logs
-      await pool.query(
-        `INSERT INTO activity_logs (actor_id, action, entity_type, entity_id, description)
-         VALUES ($1, $2, $3, $4, $5)`,
-        [changed_by, "complaint_assigned", "complaint", id, `Complaint assigned to worker`]
-      ).catch(err => console.error("Error logging complaint assignment:", err));
     }
 
     // Insert notifications dynamically
-    if (updatedComplaint.citizen_id && oldStatus !== status) {
+    if (updatedComplaint && updatedComplaint.citizen_id && oldStatus !== status) {
       const msg = `Your complaint status has been updated to "${status}".`;
       await pool.query(
         `INSERT INTO notifications (user_id, complaint_id, message) VALUES ($1, $2, $3)`,
         [updatedComplaint.citizen_id, id, msg]
       ).catch(err => console.error("Error creating status notification:", err));
-    }
-
-    if (worker_id) {
-      const msg = `New task assigned: "${updatedComplaint.description.substring(0, 60)}..."`;
-      await pool.query(
-        `INSERT INTO notifications (user_id, complaint_id, message) VALUES ($1, $2, $3)`,
-        [worker_id, id, msg]
-      ).catch(err => console.error("Error creating assignment notification:", err));
     }
 
     return res.status(200).json({
