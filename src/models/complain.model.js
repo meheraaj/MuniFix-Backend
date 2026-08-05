@@ -16,14 +16,16 @@ const ComplainModel = {
     ai_priority = null,
     ai_confidence_score = null,
     ai_override = false,
+    is_emergency = false,
   }) {
     const query = `
       INSERT INTO complaints (
         citizen_id, description, image_url, latitude, longitude,
         category, priority, status, department_id,
-        ai_category, ai_priority, ai_confidence_score, ai_override
+        ai_category, ai_priority, ai_confidence_score, ai_override,
+        is_emergency
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
       RETURNING *;
     `;
     const values = [
@@ -40,6 +42,7 @@ const ComplainModel = {
       ai_priority,
       ai_confidence_score,
       ai_override,
+      is_emergency,
     ];
     const result = await pool.query(query, values);
     return result.rows[0];

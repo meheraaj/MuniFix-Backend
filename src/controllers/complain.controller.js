@@ -146,6 +146,7 @@ Citizen description: "${description}"`
 const createComplaint = async (req, res, next) => {
   try {
     const { description, latitude, longitude, category, priority, department_id } = req.body;
+    const is_emergency = req.body.is_emergency === true || req.body.is_emergency === "true";
     const citizen_id = req.user_id;
     if (!citizen_id) {
       return next(new ApiError(401, "Unauthorized: User ID not found."));
@@ -212,10 +213,14 @@ const createComplaint = async (req, res, next) => {
     }
 
     // Perform AI auto-routing and categorization
-    const aiDetails = await classifyComplaintAI(description);
+    // If it's an emergency, bypass Gemini API completely (routing locally) for instant response
+    const aiDetails = is_emergency 
+      ? classifyComplaintLocal(description)
+      : await classifyComplaintAI(description);
+
     console.log("AI Classification Result:", aiDetails);
     const finalCategory = category || aiDetails.ai_category;
-    const finalPriority = priority || aiDetails.ai_priority;
+    const finalPriority = is_emergency ? "critical" : (priority || aiDetails.ai_priority);
     const finalDeptId = department_id || aiDetails.department_id;
 
     // Create the complaint record in the database
@@ -230,9 +235,10 @@ const createComplaint = async (req, res, next) => {
       status: "pending",
       department_id: finalDeptId,
       ai_category: aiDetails.ai_category,
-      ai_priority: aiDetails.ai_priority,
+      ai_priority: is_emergency ? "critical" : aiDetails.ai_priority,
       ai_confidence_score: aiDetails.ai_confidence_score,
       ai_override: !!(category || priority || department_id),
+      is_emergency,
     });
 
     // Create initial history record
@@ -241,19 +247,37 @@ const createComplaint = async (req, res, next) => {
       old_status: "none",
       new_status: "pending",
       changed_by: citizen_id,
-      notes: "Complaint registered in MuniFix system.",
+      notes: is_emergency ? "Emergency complaint registered in MuniFix system." : "Complaint registered in MuniFix system.",
     });
 
     // Log to activity_logs
+    const activityAction = is_emergency ? "emergency_complaint_submitted" : "complaint_submitted";
     await pool.query(
       `INSERT INTO activity_logs (actor_id, action, entity_type, entity_id, description)
        VALUES ($1, $2, $3, $4, $5)`,
-      [citizen_id || req.user_id, "complaint_submitted", "complaint", newComplaint.id, `Complaint submitted: ${newComplaint.description.substring(0, 50)}...`]
+      [citizen_id || req.user_id, activityAction, "complaint", newComplaint.id, `${is_emergency ? "Emergency complaint" : "Complaint"} submitted: ${newComplaint.description.substring(0, 50)}...`]
     ).catch(err => console.error("Error logging complaint submission:", err));
+
+    // Dispatch notifications to relevant admin users immediately for emergency cases
+    if (is_emergency) {
+      const adminQuery = finalDeptId 
+        ? `SELECT id FROM users WHERE (role = 'dept_admin' AND department_id = $1) OR role = 'super_admin'`
+        : `SELECT id FROM users WHERE role = 'super_admin'`;
+      const adminParams = finalDeptId ? [finalDeptId] : [];
+      const adminRes = await pool.query(adminQuery, adminParams).catch(err => console.error("Error fetching admins for emergency notification:", err));
+      if (adminRes && adminRes.rows.length > 0) {
+        for (const adminRow of adminRes.rows) {
+          await pool.query(
+            `INSERT INTO notifications (user_id, complaint_id, message) VALUES ($1, $2, $3)`,
+            [adminRow.id, newComplaint.id, `EMERGENCY ALERT: A critical complaint has been submitted under ${finalCategory || 'General'}. Description: "${description.substring(0, 60)}..."`]
+          ).catch(err => console.error("Error creating emergency notification for admin:", err));
+        }
+      }
+    }
 
     return res.status(201).json({
       success: true,
-      message: "Complaint registered successfully",
+      message: is_emergency ? "Emergency dispatch sent successfully" : "Complaint registered successfully",
       complaint: newComplaint,
     });
   } catch (error) {
@@ -398,7 +422,11 @@ const updateStatus = async (req, res, next) => {
     }
 
     // Insert notifications dynamically
+<<<<<<< HEAD
     if (updatedComplaint && updatedComplaint.citizen_id && oldStatus !== status) {
+=======
+    if (updatedComplaint.citizen_id && oldStatus !== status) {
+>>>>>>> 07351af82d1060d7249fc7a2db78ce9f2c4aaa83
       const msg = `Your complaint status has been updated to "${status}".`;
       await pool.query(
         `INSERT INTO notifications (user_id, complaint_id, message) VALUES ($1, $2, $3)`,
