@@ -14,6 +14,8 @@ const {
 } = require("../controllers/complain.controller.js");
 const upload = require("../middleware/upload.middleware.js");
 const { checkAuth, restrictTo } = require("../middleware/auth.middleware.js");
+const { handleVote, getComplaintVoters } = require('../controllers/vote.controller.js');
+const { postComment, fetchComments, deleteComment } = require('../controllers/comment.controller.js');
 
 const complain_routes = express.Router();
 
@@ -30,4 +32,14 @@ complain_routes.delete("/:id", checkAuth, restrictTo("dept_admin", "super_admin"
 complain_routes.patch("/:id/assign", checkAuth, restrictTo("dept_admin", "super_admin"), manualAssignComplaint);
 complain_routes.post("/:id/assign", checkAuth, restrictTo("dept_admin", "super_admin"), manualAssignComplaint);
 complain_routes.get("/worker/tasks", checkAuth, restrictTo("worker", "field_worker"), getWorkerTasks);
+
+// Vote routes
+complain_routes.post('/:id/vote', checkAuth, handleVote);
+complain_routes.get('/:id/voters', checkAuth, getComplaintVoters);
+
+// Comment Routes
+complain_routes.get('/:id/comments', checkAuth, fetchComments);
+complain_routes.post('/:id/comments', checkAuth, upload.single('image'), postComment);
+complain_routes.delete('/comments/:commentId', checkAuth, deleteComment);
+
 module.exports = complain_routes;
