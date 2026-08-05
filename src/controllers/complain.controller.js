@@ -422,11 +422,7 @@ const updateStatus = async (req, res, next) => {
     }
 
     // Insert notifications dynamically
-<<<<<<< HEAD
     if (updatedComplaint && updatedComplaint.citizen_id && oldStatus !== status) {
-=======
-    if (updatedComplaint.citizen_id && oldStatus !== status) {
->>>>>>> 07351af82d1060d7249fc7a2db78ce9f2c4aaa83
       const msg = `Your complaint status has been updated to "${status}".`;
       await pool.query(
         `INSERT INTO notifications (user_id, complaint_id, message) VALUES ($1, $2, $3)`,

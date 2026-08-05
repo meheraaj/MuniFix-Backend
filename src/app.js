@@ -10,7 +10,6 @@ const logsRouter = require("./routes/logs.routes.js");
 
 const app = express();
 
-<<<<<<< HEAD
 // CORS: allow configured frontend domain + known Vercel deployments
 const ALLOWED_ORIGINS = [
   process.env.FRONTEND_DOMAIN,         // set this in Vercel env vars
@@ -29,16 +28,6 @@ app.use(cors({
   },
   credentials: true
 }));
-=======
-app.use(
-  cors({
-    origin: ["https://muni-fix.vercel.app", "http://localhost:5173", "http://localhost:3000"],
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
-    credentials: true,
-  })
-);
->>>>>>> 07351af82d1060d7249fc7a2db78ce9f2c4aaa83
 app.use(express.json());
 
 app.use("/api", routes);
