@@ -1,237 +1,54 @@
-# MuniFix Backend API Documentation
+Database Schema & Migrations
 
-## Base URL
+Added counter columns (upvote_count, downvote_count, comment_count) to the main complaints table.
 
-```text
-http://localhost:3000/api
-```
+Created the complaint_votes relational table with composite unique constraints (complaint_id, user_id) and type validation (1 for upvote, -1 for downvote).
 
----
+Created the comments relational table supporting textual content and attached Cloudinary image URLs.
 
-# Authentication
+Created speed indexes (idx_votes_lookup, idx_comments_complaint_paginated) for fast pagination.
 
-## Register User
+Created and re-bound automated PL/pgSQL database triggers (update_complaint_vote_counts, update_complaint_comment_counts) to automatically maintain counter totals on INSERT, UPDATE, or DELETE.
 
-Create a new user account.
+API Endpoints & Controllers
 
-### Endpoint
+POST /api/complain/:id/vote: Handles casting, updating (switch upvote/downvote), and toggling off votes using req.user_id.
 
-```http
-POST /auth/signup
-```
+GET /api/complain/:id/voters: Fetches the list of users who upvoted or downvoted a complaint with optional filtering via ?type=1 or ?type=-1.
 
-### Request Body
+GET /api/complain/:id/comments: Returns paginated comments for a complaint, joining author details (name, role).
 
-| Field         | Type   | Required |
-| ------------- | ------ | -------- |
-| name          | String | ✅       |
-| email         | String | ✅       |
-| phone         | String | ✅       |
-| password      | String | ✅       |
-| department_id | UUID   | ✅       |
-| role          | String | ✅       |
+POST /api/complain/:id/comments: Accepts comments with optional image attachments streamed directly to Cloudinary (munifix/comments).
 
-### Example Request
+DELETE /api/complain/comments/:commentId: Allows comment owners or admins (dept_admin, super_admin) to delete comments.
 
-```json
-{
-  "name": "John Doe",
-  "email": "john@example.com",
-  "phone": "01712345678",
-  "password": "password123",
-  "department_id": "550e8400-e29b-41d4-a716-446655440000",
-  "role": "citizen"
-}
-```
+Bug Fixes & Refactoring
 
-### Success Response (201)
+Fixed SQLSTATE 42804 foreign key datatype mismatch between UUID / INTEGER references.
 
-```json
-{
-  "success": true,
-  "message": "Account registered successfully",
-  "user": {
-    "id": "uuid",
-    "name": "John Doe",
-    "email": "john@example.com",
-    "phone": "01712345678",
-    "department_id": "550e8400-e29b-41d4-a716-446655440000",
-    "role": "citizen"
-  }
-}
-```
+Fixed SQLSTATE 22P02 (invalid input syntax for type uuid: "NaN") by removing parseInt() on UUID parameters.
 
-### Error Responses
+Refactored Model and Controller layers from ES module syntax (import/export) to CommonJS (require/module.exports) to align with app.js and db.js.
 
-**400 Bad Request**
+Updated Bruno testing collection documentation for all new endpoints.
 
-```json
-{
-  "success": false,
-  "message": "Name, email, Password and phone are required fields."
-}
-```
+🚀 Future Work & Roadmap Ideas
+Comment Voting System
 
-**409 Conflict**
+Add upvoting and downvoting specifically for individual comments (comment_votes table).
 
-```json
-{
-  "success": false,
-  "message": "An Account with this email already exist."
-}
-```
+Allow citizens and admins to highlight the most helpful or relevant community comments on a complaint thread.
 
----
+AI Auto-Reevaluation on High Downvotes
 
-# Login User
+Trigger an automated AI check (using Gemini) if a complaint's downvote_count exceeds a set threshold (or if downvotes significantly outnumber upvotes).
 
-Authenticate an existing user.
+Auto-adjust parameters like ai_confidence_score, flag potential spam/fake complaints, or escalate priority for administrative review.
 
-### Endpoint
+Duplicate Complaint Detection
 
-```http
-POST /auth/signin
-```
+Run similarity checks on description text and geolocation proximity when a new complaint is filed to prevent duplicate entries for the same issue.
 
-### Request Body
+Real-time Notifications
 
-| Field    | Type   | Required |
-| -------- | ------ | -------- |
-| email    | String | ✅       |
-| password | String | ✅       |
-
-### Example Request
-
-```json
-{
-  "email": "john@example.com",
-  "password": "password123"
-}
-```
-
-### Success Response (200)
-
-```json
-{
-  "success": true,
-  "message": "Login Success.",
-  "users": {
-    "email": "john@example.com",
-    "id": "user_uuid"
-  },
-  "authtoken": "your_jwt_token"
-}
-```
-
-### Error Responses
-
-**400 Bad Request**
-
-```json
-{
-  "success": false,
-  "message": "wrong password.",
-  "email": "john@example.com"
-}
-```
-
-**409 Conflict**
-
-```json
-{
-  "success": false,
-  "message": "Account not found with this email."
-}
-```
-
----
-
-# Authorization
-
-For all protected routes, send the JWT in the request header.
-
-```http
-Authorization: Bearer <your_jwt_token>
-```
-
----
-
-# HTTP Status Codes
-
-| Status Code | Description           |
-| ----------- | --------------------- |
-| 200         | OK                    |
-| 201         | Created               |
-| 400         | Bad Request           |
-| 409         | Conflict              |
-| 500         | Internal Server Error |
-
----
-
-# Complains Filter (Admin Only)
-
-Get filtered complains based on various fields. Only `super_admin` and `dept_admin` have access. `dept_admin` is restricted to see complaints only from their own department.
-
-### Endpoint
-
-```http
-GET /complain/admin/filter
-```
-
-### Request Headers
-
-```http
-Authorization: Bearer <your_jwt_token>
-```
-
-### Query Parameters (Optional)
-
-You can pass single or multiple values (comma-separated or multiple keys) to filter:
-
-- `status` or `statuses`: e.g. `pending`, `pending,assigned`, or multiple `status` parameters.
-- `category` or `categories`: e.g. `Waterlogging`, `Road Repair`.
-- `priority` or `priorities`: e.g. `low`, `medium`, `high`, `critical`.
-- `department_id` or `department_ids`: e.g. `1,2`.
-- `citizen_id` or `citizen_ids`: citizen user UUID.
-
-### Example Request
-
-```http
-GET /complain/admin/filter?status=pending,assigned&category=Waterlogging
-```
-
-### Success Response (200)
-
-```json
-{
-  "success": true,
-  "count": 1,
-  "complains": [
-    {
-      "id": "complaint-uuid",
-      "citizen_id": "citizen-uuid",
-      "description": "Road pothole near Gate 2",
-      "image_url": ["url"],
-      "latitude": 22.341,
-      "longitude": 91.812,
-      "category": "Road Repair",
-      "priority": "high",
-      "status": "pending",
-      "department_id": 2,
-      "citizen_name": "John Doe",
-      "citizen_email": "john@example.com",
-      "department_name": "Road Repair"
-    }
-  ]
-}
-```
-
----
-
-## Project Stack
-
-- Node.js
-- Express.js
-- PostgreSQL
-- JWT Authentication
-- bcrypt Password Hashing
+Integrate WebSockets (Socket.io) or push notifications so citizens receive real-time updates when someone comments on or upvotes their complaint, or when status changes occur.
