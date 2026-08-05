@@ -322,7 +322,8 @@ const listComplaints = async (req, res, next) => {
 const getComplaint = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const complaint = await ComplainModel.getComplaintById(id);
+    const userId = req.user_id;
+    const complaint = await ComplainModel.getComplaintById(id, userId);
 
     if (!complaint) {
       return next(new ApiError(404, "Complaint not found."));

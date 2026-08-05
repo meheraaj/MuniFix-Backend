@@ -53,7 +53,10 @@ const ComplainModel = {
     let query = `
       SELECT c.*, 
              u.name as citizen_name, u.email as citizen_email,
-             d.name as department_name
+             d.name as department_name,
+             COALESCE((SELECT COUNT(*)::int FROM complaint_votes WHERE complaint_id::text = c.id::text AND vote_type = 1), 0) as upvote_count,
+             COALESCE((SELECT COUNT(*)::int FROM complaint_votes WHERE complaint_id::text = c.id::text AND vote_type = -1), 0) as downvote_count,
+             COALESCE((SELECT COUNT(*)::int FROM comments WHERE complaint_id::text = c.id::text), 0) as comment_count
       FROM complaints c
       LEFT JOIN users u ON c.citizen_id = u.id
       LEFT JOIN departments d ON c.department_id = d.id
@@ -93,17 +96,21 @@ const ComplainModel = {
   },
 
   // Get single complaint details
-  async getComplaintById(id) {
+  async getComplaintById(id, userId = null) {
     const query = `
       SELECT c.*, 
              u.name as citizen_name, u.email as citizen_email, u.phone as citizen_phone,
-             d.name as department_name
+             d.name as department_name,
+             COALESCE((SELECT COUNT(*)::int FROM complaint_votes WHERE complaint_id::text = c.id::text AND vote_type = 1), 0) as upvote_count,
+             COALESCE((SELECT COUNT(*)::int FROM complaint_votes WHERE complaint_id::text = c.id::text AND vote_type = -1), 0) as downvote_count,
+             COALESCE((SELECT COUNT(*)::int FROM comments WHERE complaint_id::text = c.id::text), 0) as comment_count,
+             (SELECT vote_type FROM complaint_votes WHERE complaint_id::text = c.id::text AND user_id::text = $2) as user_vote
       FROM complaints c
       LEFT JOIN users u ON c.citizen_id = u.id
       LEFT JOIN departments d ON c.department_id = d.id
-      WHERE c.id = $1
+      WHERE c.id::text = $1
     `;
-    const result = await pool.query(query, [id]);
+    const result = await pool.query(query, [id, userId]);
     return result.rows[0] || null;
   },
 

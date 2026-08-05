@@ -1,5 +1,6 @@
 const { VoteModel } = require('../models/vote.model.js');
 const ApiError = require('../utils/apiError.js');
+const pool = require('../config/db.js');
 
 const handleVote = async (req, res, next) => {
   try {
@@ -13,10 +14,29 @@ const handleVote = async (req, res, next) => {
 
     const result = await VoteModel.upsertOrDeleteVote(complaintId, userId, vote_type);
 
+    // Fetch updated upvote and downvote counts
+    const countsResult = await pool.query(
+      `SELECT 
+        COALESCE(SUM(CASE WHEN vote_type = 1 THEN 1 ELSE 0 END), 0)::int as upvote_count,
+        COALESCE(SUM(CASE WHEN vote_type = -1 THEN 1 ELSE 0 END), 0)::int as downvote_count
+       FROM complaint_votes 
+       WHERE complaint_id::text = $1`,
+      [complaintId]
+    );
+    const { upvote_count, downvote_count } = countsResult.rows[0];
+
+    // Determine the current user's vote type from result
+    let user_vote = null;
+    if (result.action !== 'removed') {
+      user_vote = result.voteType !== undefined ? result.voteType : (result.vote ? result.vote.vote_type : vote_type);
+    }
+
     return res.status(200).json({
       success: true,
       message: `Vote successfully ${result.action}.`,
-      data: result
+      upvote_count,
+      downvote_count,
+      user_vote
     });
   } catch (error) {
     console.error("Error processing vote:", error);
