@@ -22,6 +22,9 @@ export const CommentModel = {
           c.content, 
           c.image_url, 
           c.created_at,
+          c.upvote_count,
+          c.downvote_count,
+          c.score,
           u.id AS author_id,
           u.name AS author_name,
           u.role AS author_role

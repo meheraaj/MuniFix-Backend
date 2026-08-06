@@ -16,6 +16,12 @@ const upload = require("../middleware/upload.middleware.js");
 const { checkAuth, restrictTo } = require("../middleware/auth.middleware.js");
 const { handleVote, getComplaintVoters } = require('../controllers/vote.controller.js');
 const { postComment, fetchComments, deleteComment } = require('../controllers/comment.controller.js');
+const {
+  handleCommentVote,
+  getCommentVoters,
+  pinComment,
+} = require("../controllers/commentVote.controller.js");
+
 
 const complain_routes = express.Router();
 
@@ -41,5 +47,11 @@ complain_routes.get('/:id/voters', checkAuth, getComplaintVoters);
 complain_routes.get('/:id/comments', checkAuth, fetchComments);
 complain_routes.post('/:id/comments', checkAuth, upload.single('image'), postComment);
 complain_routes.delete('/comments/:commentId', checkAuth, deleteComment);
+
+// commnetVote
+complain_routes.post("/comments/:commentId/vote", checkAuth, handleCommentVote);
+complain_routes.get("/comments/:commentId/voters", checkAuth, getCommentVoters);
+complain_routes.patch("/comments/:commentId/pin", checkAuth, pinComment);
+
 
 module.exports = complain_routes;
