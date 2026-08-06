@@ -7,6 +7,7 @@ const admin_routes = require("./admin.routes.js");
 const notification_routes = require("./notification.routes.js");
 const departments_routes = require("./departments.routes.js");
 const users_routes = require("./users.routes.js");
+const traffic_routes = require("./traffic.routes.js");
 
 const routes = express.Router();
 
@@ -18,7 +19,7 @@ routes.use("/admin", admin_routes);
 routes.use("/notifications", notification_routes);
 routes.use("/departments", departments_routes);
 routes.use("/users", users_routes);
-
+routes.use("/traffic", traffic_routes);
 
 module.exports = routes;
 
