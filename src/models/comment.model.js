@@ -1,6 +1,5 @@
-import pool from '../config/db.js';
-
-export const CommentModel = {
+const pool = require('../config/db.js');
+ const CommentModel = {
   // Add comment to complaint
    
   async createComment(complaintId, userId, content, imageUrl = null) {
@@ -56,3 +55,4 @@ export const CommentModel = {
     return result.rows.length > 0;
   }
 };
+module.exports = { CommentModel };
