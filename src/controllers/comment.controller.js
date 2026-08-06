@@ -1,6 +1,8 @@
 const { CommentModel } = require('../models/comment.model.js');
 const ApiError = require('../utils/apiError.js');
 const cloudinary = require('../config/cloudinary.js');
+const pool = require('../config/db.js');
+const { sendLiveNotification, broadcastNewComment } = require('./socket.controller.js');
 
 const postComment = async (req, res, next) => {
   try {
@@ -43,6 +45,30 @@ const postComment = async (req, res, next) => {
       content.trim(),
       imageUrl
     );
+
+    // Broadcast the new comment to users currently viewing this complaint room
+    broadcastNewComment(complaintId, newComment);
+
+    // Notify complaint owner if someone else commented on their complaint
+    const complaintRes = await pool.query(
+      `SELECT citizen_id FROM complaints WHERE id::text = $1`,
+      [complaintId]
+    );
+    const complaint = complaintRes.rows[0];
+
+    if (complaint && complaint.citizen_id !== userId) {
+      const commenterUser = await pool.query(`SELECT name FROM users WHERE id = $1`, [userId]);
+      const commenterName = commenterUser.rows[0]?.name || "Someone";
+
+      sendLiveNotification(complaint.citizen_id, {
+        type: "NEW_COMMENT",
+        title: "New Comment on Your Complaint",
+        message: `${commenterName} commented on your complaint.`,
+        comment_id: newComment.id,
+        complaint_id: complaintId,
+        created_at: new Date(),
+      });
+    }
 
     return res.status(201).json({
       success: true,

@@ -1,6 +1,7 @@
 const { VoteModel } = require('../models/vote.model.js');
 const ApiError = require('../utils/apiError.js');
 const pool = require('../config/db.js');
+const { sendLiveNotification, broadcastComplaintVote } = require('./socket.controller.js');
 
 const handleVote = async (req, res, next) => {
   try {
@@ -17,18 +18,47 @@ const handleVote = async (req, res, next) => {
     // Fetch updated upvote and downvote counts
     const countsResult = await pool.query(
       `SELECT 
-        COALESCE(SUM(CASE WHEN vote_type = 1 THEN 1 ELSE 0 END), 0)::int as upvote_count,
-        COALESCE(SUM(CASE WHEN vote_type = -1 THEN 1 ELSE 0 END), 0)::int as downvote_count
+         COALESCE(SUM(CASE WHEN vote_type = 1 THEN 1 ELSE 0 END), 0)::int as upvote_count,
+         COALESCE(SUM(CASE WHEN vote_type = -1 THEN 1 ELSE 0 END), 0)::int as downvote_count
        FROM complaint_votes 
        WHERE complaint_id::text = $1`,
       [complaintId]
     );
+
     const { upvote_count, downvote_count } = countsResult.rows[0];
 
     // Determine the current user's vote type from result
     let user_vote = null;
     if (result.action !== 'removed') {
       user_vote = result.voteType !== undefined ? result.voteType : (result.vote ? result.vote.vote_type : vote_type);
+    }
+
+    // Broadcast live vote count to anyone currently viewing this complaint thread
+    broadcastComplaintVote(complaintId, {
+      complaint_id: complaintId,
+      upvote_count,
+      downvote_count,
+    });
+
+    // Notify the complaint owner if someone else voted on their complaint
+    const complaintRes = await pool.query(
+      `SELECT citizen_id, title FROM complaints WHERE id::text = $1`,
+      [complaintId]
+    );
+    const complaint = complaintRes.rows[0];
+
+    if (complaint && complaint.citizen_id !== userId && result.action !== 'removed') {
+      const voterUser = await pool.query(`SELECT name FROM users WHERE id = $1`, [userId]);
+      const voterName = voterUser.rows[0]?.name || "Someone";
+      const actionText = vote_type === 1 ? "upvoted" : "downvoted";
+
+      sendLiveNotification(complaint.citizen_id, {
+        type: "COMPLAINT_VOTE",
+        title: "New Vote on Your Complaint",
+        message: `${voterName} ${actionText} your complaint.`,
+        complaint_id: complaintId,
+        created_at: new Date(),
+      });
     }
 
     return res.status(200).json({

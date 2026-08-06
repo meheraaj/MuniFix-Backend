@@ -52,11 +52,10 @@ app.use((err, req, res, next) => {
     stack: process.env.NODE_ENV === "production" ? undefined : err.stack,
   });
 });
-
 module.exports = app;
-if (process.env.NODE_ENV !== "production" && process.env.NODE_ENV !== "test") {
-  const PORT = process.env.PORT || 3000;
-  app.listen(PORT, () => {
-    console.log(`Running on Port ${PORT}`);
-  });
-}
+// if (process.env.NODE_ENV !== "production" && process.env.NODE_ENV !== "test") {
+//   const PORT = process.env.PORT || 3000;
+//   app.listen(PORT, () => {
+//     console.log(`Running on Port ${PORT}`);
+//   });
+// }
