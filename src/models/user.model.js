@@ -40,7 +40,7 @@ const UserModel = {
 
   async loginUser({ em, password }) {
     const queryText = `
-    SELECT id,email,password,role
+    SELECT id,email,password,role,email_verified
     FROM users
     WHERE email = $1
     `;

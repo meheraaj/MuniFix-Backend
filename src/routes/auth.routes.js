@@ -1,5 +1,5 @@
 const express = require("express");
-const { register, login, signout, refreshSession, verifyOtp, forgotPassword } = require("../controllers/auth.controller");
+const { register, login, signout, refreshSession, verifyOtp, forgotPassword ,resendOtp} = require("../controllers/auth.controller");
 const { checkAuth } = require("../middleware/auth.middleware.js");
 const auth_routes = express.Router();
 
@@ -9,5 +9,6 @@ auth_routes.post("/signout", checkAuth, signout);
 auth_routes.post("/refresh", refreshSession);
 auth_routes.post("/verify-otp", verifyOtp);
 auth_routes.post("/forgot-password", forgotPassword);
+auth_routes.post("/resend-otp", resendOtp);
 
 module.exports = auth_routes;

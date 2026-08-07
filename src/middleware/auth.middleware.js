@@ -20,12 +20,18 @@ const checkAuth = async (req, res, next) => {
     const dtt = decodedToken;
 
     const userValid = await UserModel.findByEmail(dtt.email);
-    if (userValid) {
+    const isEmailVerified = userValid ? userValid.email_verified : false;
+
+    if (userValid && isEmailVerified) {
       req.email = dtt.email;
       req.user_id = dtt.id;
       req.role = dtt.role;
       next();
-    } else return next(new ApiError(401, "Unauthorized"));
+    }else if(userValid) {
+      return next(new ApiError(401, "Email not verified."));
+    } else {
+      return next(new ApiError(401, "Unauthorized"));
+    }
   } catch (error) {
     return next(new ApiError(401, "Invalid or expired token."));
   }
