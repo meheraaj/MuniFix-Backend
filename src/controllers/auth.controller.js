@@ -3,8 +3,9 @@ const { UserModel } = require("../models/user.model.js");
 const ApiError = require("../utils/apiError");
 const express = require("express");
 const { verifyPassword } = require("../utils/validator.js");
-const { generateToken, generateRefreshToken } = require("../utils/jwt.token.js");
+const { generateToken, generateRefreshToken ,decodeToken} = require("../utils/jwt.token.js");
 const pool = require("../config/db.js");
+const { sendEmail } = require("./otp.controller.js");
 
 const register = async (req, res, next) => {
   try {
@@ -43,7 +44,7 @@ const register = async (req, res, next) => {
     await UserModel.saveOtp(newUser.id, otpCode, expiresAt);
 
     console.log(`\n==========================================\nREGISTRATION OTP FOR ${email}: ${otpCode}\n==========================================\n`);
-
+     sendEmail(otpCode, email); // Send OTP to user's email
     // Log to activity_logs
     await pool.query(
       `INSERT INTO activity_logs (actor_id, action, entity_type, entity_id, description)
@@ -224,6 +225,40 @@ const forgotPassword = async (req, res, next) => {
   }
 };
 
+const resendOtp = async (req, res, next) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith("Bearer")) {
+      return next(new ApiError(401, "Authorization token required."));
+    }
+
+    const token = authHeader.split(" ")[1];
+    const decoded = await decodeToken(token);
+
+    if (!decoded || !decoded.email) {
+      return next(new ApiError(401, "Invalid token payload."));
+    }
+
+    const user = await UserModel.findByEmail(decoded.email);
+    if (!user) {
+      return next(new ApiError(404, "User not found."));
+    }
+
+    const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 mins
+    await UserModel.saveOtp(user.id, otpCode, expiresAt);
+
+    console.log(`\n==========================================\nRESEND OTP FOR ${user.email}: ${otpCode}\n==========================================\n`);
+    sendEmail(otpCode, user.email);
+
+    return res.status(200).json({
+      success: true,
+      message: "Verification OTP resent successfully.",
+    });
+  } catch (error) {
+    next(new ApiError(401, "Invalid or expired authorization token."));
+  }
+};
 module.exports = {
   register,
   login,
@@ -231,4 +266,5 @@ module.exports = {
   refreshSession,
   verifyOtp,
   forgotPassword,
+  resendOtp
 };
