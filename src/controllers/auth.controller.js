@@ -227,19 +227,24 @@ const forgotPassword = async (req, res, next) => {
 
 const resendOtp = async (req, res, next) => {
   try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith("Bearer")) {
-      return next(new ApiError(401, "Authorization token required."));
+    let email = req.body.email;
+
+    if (!email) {
+      const authHeader = req.headers.authorization;
+      if (authHeader && authHeader.startsWith("Bearer")) {
+        const token = authHeader.split(" ")[1];
+        const decoded = await decodeToken(token);
+        if (decoded && decoded.email) {
+          email = decoded.email;
+        }
+      }
     }
 
-    const token = authHeader.split(" ")[1];
-    const decoded = await decodeToken(token);
-
-    if (!decoded || !decoded.email) {
-      return next(new ApiError(401, "Invalid token payload."));
+    if (!email) {
+      return next(new ApiError(400, "Email or authorization token required."));
     }
 
-    const user = await UserModel.findByEmail(decoded.email);
+    const user = await UserModel.findByEmail(email);
     if (!user) {
       return next(new ApiError(404, "User not found."));
     }
@@ -256,7 +261,7 @@ const resendOtp = async (req, res, next) => {
       message: "Verification OTP resent successfully.",
     });
   } catch (error) {
-    next(new ApiError(401, "Invalid or expired authorization token."));
+    next(new ApiError(500, error.message));
   }
 };
 module.exports = {
