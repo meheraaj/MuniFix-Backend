@@ -89,15 +89,15 @@ function classifyComplaintLocal(description) {
 }
 
 // Hybrid AI Classification: checks for Gemini API key, otherwise falls back to local rules
-async function classifyComplaintAI(description) {
+async function classifyComplaintAI(description, files = []) {
   if (process.env.GEMINI_API_KEY) {
     console.log("Processing complaint classification with Gemini API...");
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: `You are the municipal categorization bot for MuniFix Chittogram. 
-Categorize the following citizen complaint description into one of these exact categories: 
+      
+      const contents = [
+        `You are the municipal categorization bot for MuniFix Chittogram. 
+Categorize the following citizen complaint description and optional image evidence into one of these exact categories: 
 - 'Waterlogging' (drainage, flooding, sewer, canals)
 - 'Road Repair' (potholes, street cracks, traffic light damage)
 - 'Waste Management' (garbage piles, trash, littering, bin placement)
@@ -122,6 +122,24 @@ Respond strictly with a JSON object in this format (do not wrap in markdown or b
 }
 
 Citizen description: "${description}"`
+      ];
+
+      if (files && files.length > 0) {
+        for (const file of files) {
+          if (file.buffer) {
+            contents.push({
+              inlineData: {
+                data: file.buffer.toString("base64"),
+                mimeType: file.mimetype
+              }
+            });
+          }
+        }
+      }
+
+      const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: contents
       });
 
       const text = response.text.trim();
@@ -214,9 +232,16 @@ const createComplaint = async (req, res, next) => {
 
     // Perform AI auto-routing and categorization
     // If it's an emergency, bypass Gemini API completely (routing locally) for instant response
+    let uploadFiles = [];
+    if (req.files && req.files.length > 0) {
+      uploadFiles = req.files;
+    } else if (req.file) {
+      uploadFiles = [req.file];
+    }
+
     const aiDetails = is_emergency 
       ? classifyComplaintLocal(description)
-      : await classifyComplaintAI(description);
+      : await classifyComplaintAI(description, uploadFiles);
 
     console.log("AI Classification Result:", aiDetails);
     const finalCategory = category || aiDetails.ai_category;
