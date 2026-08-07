@@ -411,12 +411,22 @@ const updateStatus = async (req, res, next) => {
     // Handle worker assignments if status is 'assigned' or a worker is specified
     let assignment = null;
     if (status === "assigned" || worker_id) {
-      if (!worker_id) {
+      let targetWorkerId = worker_id;
+      if (!targetWorkerId) {
+        // Fallback: Check if there is an existing assignment for this complaint
+        const existingAssignment = await ComplainModel.getAssignment(id);
+        if (existingAssignment && existingAssignment.worker_id) {
+          targetWorkerId = existingAssignment.worker_id;
+        }
+      }
+
+      if (!targetWorkerId) {
         return next(new ApiError(400, "worker_id is required to assign this complaint."));
       }
+
       assignment = await ComplainModel.assignComplaint({
         complaint_id: id,
-        worker_id,
+        worker_id: targetWorkerId,
         assigned_by: changed_by,
         notes: notes || "Assigned by department admin.",
       });
