@@ -1,3 +1,4 @@
+
 const express = require("express");
 const auth_routes = require("./auth.routes.js");
 const complain_routes = require("./complain.routes.js");
@@ -22,5 +23,4 @@ routes.use("/users", users_routes);
 routes.use("/traffic", traffic_routes);
 
 module.exports = routes;
-
 
