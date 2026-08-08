@@ -344,6 +344,76 @@ const listComplaints = async (req, res, next) => {
   }
 };
 
+
+//Show all complaints not matter their role or author.
+const showAllComplaints = async (req, res, next) => {
+  try {
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const limit = Math.max(1, parseInt(req.query.limit, 10) || 10);
+    const offset = (page - 1) * limit;
+const citizen_id = req.user_id;
+    const { status, category } = req.query;
+
+    let query = `
+      SELECT c.*, 
+             u.name as citizen_name, u.email as citizen_email,
+             d.name as department_name,
+             COALESCE((SELECT COUNT(*)::int FROM complaint_votes WHERE complaint_id::text = c.id::text AND vote_type = 1), 0) as upvote_count,
+             COALESCE((SELECT COUNT(*)::int FROM complaint_votes WHERE complaint_id::text = c.id::text AND vote_type = -1), 0) as downvote_count,
+             COALESCE((SELECT COUNT(*)::int FROM comments WHERE complaint_id::text = c.id::text), 0) as comment_count,
+             COUNT(*) OVER()::int as total_count
+      FROM complaints c
+      LEFT JOIN users u ON c.citizen_id = u.id
+      LEFT JOIN departments d ON c.department_id = d.id
+      WHERE 1=1
+    `;
+
+    const values = [];
+    let paramIndex = 1;
+
+    if (status) {
+      query += ` AND c.status = $${paramIndex}`;
+      values.push(status);
+      paramIndex++;
+    }
+
+    if (category) {
+      query += ` AND c.category = $${paramIndex}`;
+      values.push(category);
+      paramIndex++;
+    }
+
+    query += ` ORDER BY c.created_at DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+    values.push(limit, offset);
+
+    const result = await pool.query(query, values);
+
+    const totalCount = result.rows.length > 0 ? result.rows[0].total_count : 0;
+    result.rows.forEach(element => {
+      
+        element.canEdit = element.citizen_id == citizen_id?true:false;
+
+    });
+
+    // Omit the window count property from individual complaint objects
+    const complaints = result.rows.map(({ total_count, ...complaint }) => complaint);
+
+    return res.status(200).json({
+      success: true,
+      pagination: {
+        total: totalCount,
+        page,
+        limit,
+        totalPages: Math.ceil(totalCount / limit),
+      },
+      count: complaints.length,
+      complaints,
+    });
+  } catch (error) {
+    next(new ApiError(500, error.message));
+  }
+};
+
 const getComplaint = async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -848,4 +918,5 @@ module.exports = {
   editComplaint,
   searchComplaints,
   overrideCategory,
+  showAllComplaints
 };

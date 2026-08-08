@@ -11,6 +11,7 @@ const {
   editComplaint,
   searchComplaints,
   overrideCategory,
+  showAllComplaints
 } = require("../controllers/complain.controller.js");
 const upload = require("../middleware/upload.middleware.js");
 const { checkAuth, restrictTo } = require("../middleware/auth.middleware.js");
@@ -30,6 +31,7 @@ complain_routes.post("/", checkAuth, restrictTo("citizen"), upload.array("images
 complain_routes.get("/", checkAuth, listComplaints);
 complain_routes.get("/admin/filter", checkAuth, restrictTo("dept_admin", "super_admin"), filterComplainForAdmin);
 complain_routes.get("/search", checkAuth, searchComplaints);
+complain_routes.get("/all", checkAuth, showAllComplaints);
 complain_routes.get("/:id", checkAuth, getComplaint);
 complain_routes.patch("/:id", checkAuth, restrictTo("citizen", "dept_admin", "super_admin"), editComplaint);
 complain_routes.patch("/:id/category", checkAuth, restrictTo("dept_admin", "super_admin"), overrideCategory);
@@ -38,6 +40,7 @@ complain_routes.delete("/:id", checkAuth, restrictTo("dept_admin", "super_admin"
 complain_routes.patch("/:id/assign", checkAuth, restrictTo("dept_admin", "super_admin"), manualAssignComplaint);
 complain_routes.post("/:id/assign", checkAuth, restrictTo("dept_admin", "super_admin"), manualAssignComplaint);
 complain_routes.get("/worker/tasks", checkAuth, restrictTo("worker", "field_worker"), getWorkerTasks);
+
 
 // Vote routes
 complain_routes.post('/:id/vote', checkAuth, handleVote);
